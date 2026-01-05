@@ -91,8 +91,12 @@ function calculate(){
     const oc=document.getElementById('offplanChips');
     if(oc){ oc.style.display='none'; }
   }
+  // Wizard step 2 mini-summary
   safeSetText('summaryLoan', formatCurrencyAED(loanAmount));
   safeSetText('summaryInitial', formatCurrencyAED(totalInitial));
+  // Input Summary totals (Financing)
+  safeSetText('sumLoanAmt', formatCurrencyAED(loanAmount));
+  safeSetText('sumTotalInitial', formatCurrencyAED(totalInitial));
 
   const r = ratePct/100/12, n = years*12;
   const monthlyPayment = (loanAmount>0 && n>0) ? (r===0 ? loanAmount/n : loanAmount * r / (1 - Math.pow(1+r, -n))) : 0;
@@ -114,6 +118,18 @@ function calculate(){
   const netYield   = pv>0 ? (NOI/pv)*100 : NaN;
   const noiMonthly = effectiveIncome - (monthlyMaint + monthlyMgmt + baseFee + (annualInsurance/12) + (otherExpenses/12));
   const dscr = monthlyPayment>0 ? (noiMonthly / monthlyPayment) : NaN;
+  // Revenue and Expenses summaries (now that values are computed)
+  // Wizard step 3/4 mini-summaries
+  safeSetText('summaryGrossInc', formatCurrencyAED(grossMonthlyIncome));
+  safeSetText('summaryEffInc', formatCurrencyAED(effectiveIncome));
+  safeSetText('summaryOpex', formatCurrencyAED(monthlyOpex));
+  safeSetText('summaryOpexY', formatCurrencyAED(annualOpex));
+  // Input Summary totals (Revenue/Expenses)
+  safeSetText('sumGrossMo', formatCurrencyAED(grossMonthlyIncome));
+  safeSetText('sumEffMo', formatCurrencyAED(effectiveIncome)); // row removed from DOM; harmless no-op
+  safeSetText('sumGrossYr', formatCurrencyAED(annualRentGross));
+  safeSetText('sumOpexMo', formatCurrencyAED(monthlyOpex));
+  safeSetText('sumOpexYr', formatCurrencyAED(annualOpex));
 
   // 5-year ROI approximation
   const remaining5 = remainingBalance(loanAmount, ratePct, years, 60);
@@ -137,6 +153,9 @@ function calculate(){
   safeSetText('valGross', formatPercent(grossYield,1));
   safeSetText('valCF', formatCurrencyAED(monthlyCashFlow)+'/mo');
   safeSetText('valROI', formatPercent(roi5,0));
+  // Grade compact quick badges
+  safeSetText('gcPI', `P&I: ${formatCurrencyAED(monthlyPayment)}/mo`);
+  safeSetText('gcCF', `Cash flow: ${formatCurrencyAED(monthlyCashFlow)}/mo`);
   const w=(v,t)=> Math.max(0, Math.min(100, (isFinite(v)&&t>0)? (v/t*100):0));
   const setW=(id,p)=>{ const el=$(id); if(el){ el.style.width = Math.round(p)+'%'; } };
   setW('barDSCR', w(dscr,1.2));
@@ -193,8 +212,21 @@ function calculate(){
       if(!isFinite(recR) || recR<0) recR=0;
     }
     const cur = rent;
-    const recEl=$('recSuggest'); if(recEl) recEl.textContent = formatCurrencyAED(recR);
-    const curEl=$('recCurrent'); if(curEl) curEl.textContent = formatCurrencyAED(cur);
+    // Populate new compact layout
+    const curValEl=$('recCurVal'); if(curValEl) curValEl.textContent = formatCurrencyAED(cur);
+    const curNetEl=$('recCurNet'); 
+    if(curNetEl){
+      curNetEl.textContent = `Net yield: ${formatPercent(netYield,1)}`;
+      curNetEl.classList.remove('good','warn','bad');
+      if(isFinite(netYield)){
+        if(netYield>=6) curNetEl.classList.add('good');
+        else if(netYield>=4) curNetEl.classList.add('warn');
+        else curNetEl.classList.add('bad');
+      }
+    }
+    const recValEl=$('recRecVal'); if(recValEl) recValEl.textContent = formatCurrencyAED(recR);
+    // Update target label next to "Target rent (...)"
+    const targetLbl=$('recTargetLbl'); if(targetLbl) targetLbl.textContent = (isFinite(targetPct)? targetPct.toFixed(1): '—') + '%';
     const st=$('recStatus');
     if(st){
       if(isFinite(recR) && cur<recR-1){
@@ -205,40 +237,27 @@ function calculate(){
         st.textContent='At or near recommended'; st.className='recc-status';
       }
     }
-    const delta=$('recDelta');
-    if(delta){
-      const diff = recR - cur;
-      let cls='warn', arrow='→', txt='AED 0';
-      if(diff>1){ cls='good'; arrow='↑'; txt = '+AED '+Math.round(diff).toLocaleString('en-US'); }
-      else if(diff<-1){ cls='bad'; arrow='↓'; txt = '−AED '+Math.abs(Math.round(diff)).toLocaleString('en-US'); }
-      delta.className='rec-delta '+cls;
-      delta.textContent = `${txt} ${arrow}`;
-    }
-    // update chips in compact row
-    const chipCur=$('recCurrentChip'); if(chipCur){ /* text already set via #recCurrent */ }
-    const chipDelta=$('recDeltaChip');
-    if(chipDelta){
-      const diff = recR - cur;
-      let cls='warn', arrow='→', txt='AED 0';
-      if(diff>1){ cls='good'; arrow='↑'; txt = '+AED '+Math.round(diff).toLocaleString('en-US'); }
-      else if(diff<-1){ cls='bad'; arrow='↓'; txt = '−AED '+Math.abs(Math.round(diff)).toLocaleString('en-US'); }
-      chipDelta.className='chip-mini '+(cls==='good'?'':cls==='bad'?'warn':''); // keep neutral styling
-      chipDelta.textContent = `${txt} ${arrow}`;
-    }
-    // inline chip directly under the recommended amount
-    const inl=$('recInline');
-    if(inl){
-      const diff = recR - cur;
-      if(Math.abs(diff)<=1 || !isFinite(diff)){
-        inl.style.display='none';
-      }else{
-        let cls='warn', arrow='→', txt='AED 0';
-        if(diff>1){ cls='good'; arrow='↑'; txt = '+AED '+Math.round(diff).toLocaleString('en-US'); }
-        else { cls='bad'; arrow='↓'; txt = '−AED '+Math.abs(Math.round(diff)).toLocaleString('en-US'); }
-        inl.className='rec-inline '+cls;
-        inl.textContent = `${txt} ${arrow}`;
-        inl.style.display='block';
+    {
+      // Color by "above/below target" (gap to target net yield), not by rent direction
+      const diff = recR - cur; // AED delta to target rent (positive → raise)
+      const pctGap = (isFinite(netYield) && isFinite(targetPct)) ? (netYield - targetPct) : NaN; // pp vs target
+      let cls='warn', text='—';
+      if(isFinite(pctGap)){
+        if(pctGap >= 0.1){
+          // Above target → green, clarify it's above target (even if target rent < current)
+          cls='good';
+          text = `Above target by ${pctGap.toFixed(1)}%`;
+        }else if(pctGap <= -0.1){
+          // Below target → red, show raise amount to reach target
+          cls='bad';
+          const amt = 'AED '+Math.abs(Math.round(diff)).toLocaleString('en-US');
+          text = `Below target by ${Math.abs(pctGap).toFixed(1)}% • Raise ${amt} ↑`;
+        }else{
+          cls='warn';
+          text = 'Near target';
+        }
       }
+      const diffEl=$('recDiff'); if(diffEl){ diffEl.className='rec-diff '+cls; diffEl.textContent = text; }
     }
     // expose for recommendations section
     window._recSuggestRent = recR;
@@ -263,8 +282,9 @@ function calculate(){
   const handoverSel = document.getElementById('handover');
   const handoverVal = (handoverSel && handoverSel.value) ? ` (${handoverSel.value})` : '';
   safeSetText('sumProject', (document.getElementById('projectName')||{}).value || '—');
-  safeSetText('sumStatus', statusVal==='offplan' ? ('Off-plan'+handoverVal) : 'Completed');
+  safeSetText('sumStatus', statusVal==='offplan' ? ('Off-plan'+handoverVal) : 'Ready');
   safeSetText('sumType', (document.getElementById('propertyType')||{}).value || '—');
+  safeSetText('sumCommunity', (document.getElementById('community')||{}).value || '—');
   safeSetText('sumBedsBaths', `${(document.getElementById('bedrooms')||{}).value || '-'}/${(document.getElementById('bathrooms')||{}).value || '-'}`);
   safeSetText('sumSize', `${(document.getElementById('size')||{}).value || '-'} ft²`);
   safeSetText('sumPrice', formatCurrencyAED(pv));
@@ -346,7 +366,7 @@ function calculate(){
     const bar=document.getElementById('gradeBar'); if(bar){ bar.style.width = Math.min(100, Math.round(totalScore)) + '%'; }
     items.forEach(it=>{
       const li=document.createElement('li'); li.className='gitem ' + (it.achieved>=1?'good':it.achieved>=0.7?'warn':'bad');
-      li.innerHTML = `<div class="head"><span class="name">${it.name}</span><span class="pct">${Math.round(it.achieved*100)}% of target</span></div>`;
+      li.innerHTML = `<div class="head"><span class="name">${it.name}</span><span class="pct"><span class="pct-tag">${Math.round(it.achieved*100)}%</span><span class="pct-text">of target</span></span></div>`;
       const bar=document.createElement('div'); bar.className='bar'; const fill=document.createElement('i'); fill.style.width=(Math.min(100, Math.round(it.achieved*100)))+'%'; bar.appendChild(fill); li.appendChild(bar);
       const sub=document.createElement('div'); sub.className='sub';
       const val = it.unit==='%'? formatPercent(it.value,1): (it.unit==='x'? (isFinite(it.value)? it.value.toFixed(2)+'x':'—'): (isFinite(it.value)? ('AED '+Math.round(it.value).toLocaleString('en-US')+'/mo'):'—'));
@@ -374,6 +394,18 @@ function calculate(){
       chip.className += ' '+cls;
       sub.appendChild(chip);
       li.appendChild(sub);
+      // Tooltip bottom-right per KPI
+      const tip=document.createElement('span'); tip.className='info'; tip.textContent='i';
+      const tipBox=document.createElement('span'); tipBox.className='itip';
+      let tipText='Metric info';
+      if(it.name==='ROI (5y)') tipText='Total 5‑year return on equity. Healthy: ≥ 60% (Dubai benchmark).';
+      else if(it.name==='Net Yield') tipText='NOI ÷ price (after vacancy & opex). Healthy: ≥ 6%.';
+      else if(it.name==='DSCR') tipText='NOI ÷ monthly P&I. Healthy: ≥ 1.20× (borderline 1.0–1.2).';
+      else if(it.name==='Gross Yield') tipText='(Rent + extra) ÷ price before opex. Healthy: ≥ 8%.';
+      else if(it.name==='Cash Flow') tipText='Monthly NOI − P&I. Healthy: ≥ AED 0/month.';
+      tipBox.textContent = tipText;
+      tip.appendChild(tipBox);
+      li.appendChild(tip);
       contrib.appendChild(li);
     });
     // Populate compact details list too
@@ -382,7 +414,7 @@ function calculate(){
       c2.innerHTML='';
       items.forEach(it=>{
         const li=document.createElement('li'); li.className='gitem ' + (it.achieved>=1?'good':it.achieved>=0.7?'warn':'bad');
-        li.innerHTML = `<div class="head"><span class="name">${it.name}</span><span class="pct">${Math.round(it.achieved*100)}% of target</span></div>`;
+        li.innerHTML = `<div class="head"><span class="name">${it.name}</span><span class="pct"><span class="pct-tag">${Math.round(it.achieved*100)}%</span><span class="pct-text">of target</span></span></div>`;
         const bar=document.createElement('div'); bar.className='bar'; const fill=document.createElement('i'); fill.style.width=(Math.min(100, Math.round(it.achieved*100)))+'%'; bar.appendChild(fill); li.appendChild(bar);
         const sub=document.createElement('div'); sub.className='sub';
         const val = it.unit==='%'? formatPercent(it.value,1): (it.unit==='x'? (isFinite(it.value)? it.value.toFixed(2)+'x':'—'): (isFinite(it.value)? ('AED '+Math.round(it.value).toLocaleString('en-US')+'/mo'):'—'));
@@ -410,6 +442,18 @@ function calculate(){
         chip.className += ' '+cls;
         sub.appendChild(chip);
         li.appendChild(sub);
+        // Tooltip bottom-right per KPI
+        const tip=document.createElement('span'); tip.className='info'; tip.textContent='i';
+        const tipBox=document.createElement('span'); tipBox.className='itip';
+        let tipText='Metric info';
+        if(it.name==='ROI (5y)') tipText='Total 5‑year return on equity. Healthy: ≥ 60% (Dubai benchmark).';
+        else if(it.name==='Net Yield') tipText='NOI ÷ price (after vacancy & opex). Healthy: ≥ 6%.';
+        else if(it.name==='DSCR') tipText='NOI ÷ monthly P&I. Healthy: ≥ 1.20× (borderline 1.0–1.2).';
+        else if(it.name==='Gross Yield') tipText='(Rent + extra) ÷ price before opex. Healthy: ≥ 8%.';
+        else if(it.name==='Cash Flow') tipText='Monthly NOI − P&I. Healthy: ≥ AED 0/month.';
+        tipBox.textContent = tipText;
+        tip.appendChild(tipBox);
+        li.appendChild(tip);
         c2.appendChild(li);
       });
     }
@@ -568,6 +612,24 @@ function calculate(){
 window.addEventListener('DOMContentLoaded', ()=>{
   // Wizard navigation
   let step=1; const maxStep=4;
+  const setStepsMinHeight=()=>{
+    const cont=document.querySelector('.steps');
+    if(!cont) return;
+    let maxH=0;
+    document.querySelectorAll('.wstep').forEach(el=>{
+      const wasShow = el.classList.contains('show');
+      if(!wasShow){
+        el.classList.add('show');
+        el.style.position='absolute'; el.style.visibility='hidden'; el.style.left='-9999px';
+      }
+      maxH = Math.max(maxH, el.offsetHeight||0);
+      if(!wasShow){
+        el.classList.remove('show');
+        el.style.position=''; el.style.visibility=''; el.style.left='';
+      }
+    });
+    cont.style.minHeight = (maxH+16)+'px';
+  };
   const setStep=(n)=>{
     step=Math.max(1, Math.min(maxStep, n));
     document.querySelectorAll('.wstep').forEach(s=>s.classList.remove('show'));
@@ -578,22 +640,51 @@ window.addEventListener('DOMContentLoaded', ()=>{
     if($("analyzeBtn")) $("analyzeBtn").style.display = step===maxStep? 'inline-flex':'none';
     // segmented bar updates
     const segs=document.querySelectorAll('#segBar .seg');
-    segs.forEach((s,i)=> s.classList.toggle('active', i<step));
+    segs.forEach((s,i)=>{
+      s.classList.remove('active','done');
+      if(i < step-1) s.classList.add('done');
+      else if(i === step-1) s.classList.add('active');
+    });
+    const caps=document.querySelectorAll('#segCaps .cap');
+    caps.forEach((c,i)=> c.classList.toggle('active', i===step-1));
     const sc=document.getElementById('stepCounter'); if(sc) sc.textContent = `Step ${step}/4`;
+    setStepsMinHeight();
   };
   // Make progress segments clickable
-  document.querySelectorAll('#segBar .seg').forEach((s,i)=>{
-    s.addEventListener('click', ()=> setStep(i+1));
-    const lbl = s.querySelector('.seg-label');
-    if(lbl){
-      lbl.addEventListener('click',(e)=>{ e.stopPropagation(); setStep(i+1); });
-    }
-  });
+  document.querySelectorAll('#segBar .seg').forEach((s,i)=> s.addEventListener('click', ()=> setStep(i+1)));
+  const segCaps=document.querySelectorAll('#segCaps .cap');
+  segCaps.forEach((c,i)=> c.addEventListener('click', ()=> setStep(i+1)));
   const prev=$("prevStep"), next=$("nextStep");
   if(prev) prev.addEventListener('click', ()=> setStep(step-1));
   if(next) next.addEventListener('click', ()=> setStep(step+1));
   setStep(1);
+  setStepsMinHeight();
+  window.addEventListener('resize', ()=>{ setStepsMinHeight(); });
 
+  // Mobile hamburger nav
+  (function(){
+    const header=document.querySelector('header.nav');
+    const btn=document.getElementById('navToggle');
+    if(!header || !btn) return;
+    btn.addEventListener('click', ()=>{
+      const isOpen = header.classList.toggle('open');
+      btn.setAttribute('aria-expanded', String(isOpen));
+    });
+    // close when clicking a menu link
+    header.querySelectorAll('.menu a').forEach(a=>{
+      a.addEventListener('click', ()=>{
+        header.classList.remove('open');
+        btn.setAttribute('aria-expanded','false');
+      });
+    });
+    // close on outside click
+    document.addEventListener('click', (e)=>{
+      if(!header.contains(e.target)){
+        header.classList.remove('open');
+        btn.setAttribute('aria-expanded','false');
+      }
+    });
+  })();
   // "What are the 4 steps?" link → scroll & pulse progress
   const stepsLink=document.querySelector('.promo-steps-link');
   if(stepsLink){
@@ -611,6 +702,28 @@ window.addEventListener('DOMContentLoaded', ()=>{
         }
       }
     });
+  }
+  // Hero "Get Started" smooth scroll to calculator
+  const heroStart=document.getElementById('heroStart');
+  if(heroStart){
+    heroStart.addEventListener('click',(e)=>{
+      const href = heroStart.getAttribute('href')||'';
+      if(href.startsWith('#')){
+        e.preventDefault();
+        const target=document.getElementById(href.slice(1));
+        if(target){ target.scrollIntoView({behavior:'smooth', block:'start'}); }
+        const bar=document.getElementById('segBar');
+        if(typeof setStep==='function'){ setStep(1); }
+        if(bar){ bar.classList.add('pulse'); setTimeout(()=> bar.classList.remove('pulse'), 1600); }
+      }
+    });
+  }
+
+  // Move calculator out of hero into white section on load (keeps markup DRY)
+  const calcHost=document.getElementById('calcSection');
+  const calcNode=document.getElementById('calcStart');
+  if(calcHost && calcNode){
+    try{ calcHost.querySelector('.wrap')?.appendChild(calcNode); }catch(_){}
   }
 
   // Edit links in Input Summary → jump to step
@@ -736,6 +849,7 @@ window.addEventListener('DOMContentLoaded', ()=>{
         const propertyData = {
           projectName: getVal('projectName'),
           propertyType: getVal('propertyType'),
+          community: getVal('community'),
           bedrooms: getVal('bedrooms'),
           bathrooms: getVal('bathrooms'),
           size: getVal('size'),
@@ -748,9 +862,10 @@ window.addEventListener('DOMContentLoaded', ()=>{
         doc.setFont('helvetica','normal'); doc.setFontSize(10);
         doc.text(`Project: ${propertyData.projectName||'—'}`,25,y+8);
         doc.text(`Type: ${propertyData.propertyType||'—'} | ${propertyData.bedrooms||'-'} Bed ${propertyData.bathrooms||'-'} Bath`,25,y+16);
-        doc.text(`Size: ${propertyData.size||'-'} sqft | Status: ${propertyData.completionStatus}`,25,y+24);
-        doc.text(`Property Value: ${formatCurrencyAED(+document.getElementById('propertyValue')?.value||0)}`,25,y+32);
-        y+=46;
+        doc.text(`Community: ${propertyData.community||'—'}`,25,y+22);
+        doc.text(`Size: ${propertyData.size||'-'} sqft | Status: ${propertyData.completionStatus}`,25,y+28);
+        doc.text(`Property Value: ${formatCurrencyAED(+document.getElementById('propertyValue')?.value||0)}`,25,y+34);
+        y+=48;
 
         // Grade box
         doc.setFont('helvetica','bold'); doc.setFontSize(14); doc.text('INVESTMENT GRADE',20,y); y+=10;
@@ -903,7 +1018,7 @@ window.addEventListener('DOMContentLoaded', ()=>{
   // Shareable link: encode current inputs into URL
   const encodeState = (obj)=> btoa(unescape(encodeURIComponent(JSON.stringify(obj))));
   const collectState = ()=>{
-    const ids=['propertyValue','downPayment','agentFee','loanTerm','interestRate','additionalCosts','monthlyRent','additionalIncome','vacancyRate','maintenanceRate','managementFee','baseFee','annualInsurance','otherExpenses','propertyType','bedrooms','bathrooms','size','projectName','handover','preHandoverPct'];
+    const ids=['propertyValue','downPayment','agentFee','loanTerm','interestRate','additionalCosts','monthlyRent','additionalIncome','vacancyRate','maintenanceRate','managementFee','baseFee','annualInsurance','otherExpenses','propertyType','community','bedrooms','bathrooms','size','projectName','handover','preHandoverPct'];
     const o={};
     ids.forEach(id=>{ const el=document.getElementById(id); if(el){ o[id]= (el.type==='checkbox')? el.checked : el.value; }});
     const st=document.getElementById('status'); if(st) o['status']=st.value;
@@ -946,6 +1061,16 @@ window.addEventListener('DOMContentLoaded', ()=>{
       window.location.href = mailto;
     });
   }
+  // Testimonials horizontal scroller
+  (function(){
+    const strip=document.getElementById('tstrip');
+    const prev=document.querySelector('.tbtn.tprev');
+    const next=document.querySelector('.tbtn.tnext');
+    if(!strip || !prev || !next) return;
+    const cardWidth=320;
+    prev.addEventListener('click', ()=> strip.scrollBy({left:-cardWidth, behavior:'smooth'}));
+    next.addEventListener('click', ()=> strip.scrollBy({left: cardWidth, behavior:'smooth'}));
+  })();
   // Dropdown toggle and outside click
   const shareToggle=document.getElementById('shareToggle');
   const shareMenu=document.getElementById('shareMenu');
@@ -993,6 +1118,24 @@ window.addEventListener('DOMContentLoaded', ()=>{
 
   // quick inline feedback
   const setFb=(msg)=>{const el=$("fbMsg"); if(el) el.textContent=msg};
+
+  // Typography variant switch
+  (function(){
+    const key='typoVariant';
+    const setVariant=(v)=>{
+      document.body.classList.remove('fontA','fontB','fontC');
+      if(v) document.body.classList.add(v);
+      try{ localStorage.setItem(key, v||''); }catch(_){}
+    };
+    const saved = (typeof localStorage!=='undefined') ? localStorage.getItem(key) : '';
+    if(saved) setVariant(saved); else setVariant('fontB'); // default to Variant B (Inter Tight)
+    const toggle=document.getElementById('typoToggle');
+    if(toggle){
+      toggle.querySelectorAll('button').forEach(btn=>{
+        btn.addEventListener('click', ()=> setVariant(btn.getAttribute('data-variant')));
+      });
+    }
+  })();
   const fbGood=$("fbGood"), fbOk=$("fbOk"), fbBad=$("fbBad");
   if(fbGood) fbGood.addEventListener('click',()=>{localStorage.setItem('fb_inline','helpful'); setFb('Thanks for your feedback! 👍')});
   if(fbOk) fbOk.addEventListener('click',()=>{localStorage.setItem('fb_inline','okay'); setFb('Thanks! 👌')});
@@ -1068,6 +1211,7 @@ window.addEventListener('DOMContentLoaded', ()=>{
         const hidden=$("status"); if(hidden) hidden.value = btn.dataset.status;
         const op=$("offplanFields"); if(op) op.style.display = (hidden && hidden.value==='offplan') ? 'block':'none';
         calculate();
+        setStepsMinHeight();
       });
     });
     // set initial visibility

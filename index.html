@@ -5,12 +5,17 @@
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>Smart Property Analyzer - Dubai</title>
   <link rel="stylesheet" href="styles.css" />
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800;900&family=Sora:wght@600;700;800;900&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@600;700;800;900&family=Inter+Tight:wght@600;700;800;900&display=swap" rel="stylesheet">
   <link rel="icon" type="image/svg+xml" href="logo-bars.svg" />
 </head>
-<body>
+<body class="fontB">
   <header class="nav">
     <div class="wrap">
       <div class="brand"><img class="brand-logo" src="logo-bars.svg" alt="Smart Property Analyzer logo" /><span>Smart Property Analyzer - Dubai</span></div>
+      <button class="nav-toggle" id="navToggle" aria-label="Open menu" aria-expanded="false">☰</button>
       <nav class="menu">
         <a href="index.html">Home</a>
         <a href="steps.html">How it works</a>
@@ -26,42 +31,41 @@
     <div class="wrap hero-grid">
       <div class="hero-copy">
         <h1>Smart Property Analyzer - Dubai</h1>
-        <p>Analyze Dubai property investments with confidence</p>
+        <p>Purpose‑built for Dubai buy‑to‑let (rental) analysis</p>
         <div class="promo-card promo-hero">
           <div class="promo-icon-lg">✓</div>
-          <h3 class="promo-title">In Just 4 Steps: Complete Investment Insight</h3>
-          <p class="promo-desc">Enter core details to instantly see Cash Flow, Net/Gross Yield, and 5‑year ROI.</p>
-          <p class="promo-trust">Benchmarks tailored to Dubai buy‑to‑let.</p>
-          <div class="promo-feats">
-            <div class="promo-feat">
-              <div class="pf-title">ROI Analysis</div>
-              <div class="pf-sub">Exact ROI and payback time</div>
-            </div>
-            <div class="promo-feat">
-              <div class="pf-title">Cash Flow</div>
-              <div class="pf-sub">Monthly profit after all costs</div>
-            </div>
-            <div class="promo-feat">
-              <div class="pf-title">Investment Grade</div>
-              <div class="pf-sub">A–F grade with weighted score</div>
-            </div>
-          </div>
-          <a class="promo-steps-link" href="steps.html">What are the 4 steps?</a>
+          <h3 class="promo-title">Start in 4 steps</h3>
+          <p class="promo-desc">Enter a few details to see Cash Flow, Net/Gross Yield and 5‑year ROI.</p>
+          <p class="promo-trust">Dubai benchmarks applied where relevant.</p>
+          <ul class="promo-list">
+            <li><span>ROI analysis and payback time</span></li>
+            <li><span>Monthly cash flow after all costs</span></li>
+            <li><span>Investment grade (A–F) with weighted score</span></li>
+          </ul>
+          
         </div>
         <div class="cta">
-          <button class="btn">Get Started</button>
-          <button class="btn ghost">Learn More</button>
+          <a class="btn ghost" id="heroStart" href="#calcStart">Get Started</a>
+          <a class="btn ghost" href="steps.html">Learn More</a>
         </div>
       </div>
       <div class="roi-card" id="calcStart">
         <div class="wizard">
+        <div class="wiz-head">
           <div class="segbar" id="segBar">
-            <div class="seg active"><span class="seg-label">Property</span></div>
-            <div class="seg"><span class="seg-label">Financing</span></div>
-            <div class="seg"><span class="seg-label">Revenue</span></div>
-            <div class="seg"><span class="seg-label">Expenses</span></div>
+            <div class="seg active"><span class="num">1</span></div>
+            <div class="seg"><span class="num">2</span></div>
+            <div class="seg"><span class="num">3</span></div>
+            <div class="seg"><span class="num">4</span></div>
+          </div>
+          <div class="segcaps" id="segCaps">
+            <button type="button" class="cap active" data-step="1">Property</button>
+            <button type="button" class="cap" data-step="2">Financing</button>
+            <button type="button" class="cap" data-step="3">Revenue</button>
+            <button type="button" class="cap" data-step="4">Expenses</button>
           </div>
           <div class="step-counter" id="stepCounter">Step 1/4</div>
+        </div>
           <div class="steps">
             <div class="wstep show" id="step-1">
               <h3 class="step-title">Step 1 · Property Details</h3>
@@ -81,9 +85,10 @@
               
               <input type="text" id="projectName" placeholder="Project name or address" />
               <label>Price (AED)
-                <div class="pair">
+                <div class="pair has-unit">
                   <input type="range" id="propertyValue" min="200000" max="6000000" step="10000" value="1200000" />
                   <input type="number" id="propertyValueNum" min="200000" max="6000000" step="10000" value="1200000" inputmode="numeric" />
+                  <span class="u">AED</span>
                 </div>
                 <div class="chips" id="priceChips">
                   <button type="button" data-val="1000000" class="chip">AED 1.0M</button>
@@ -115,30 +120,72 @@
                   <span class="chip-mini warn" id="chipWarn" style="display:none">Check totals</span>
                 </div>
               </div>
-              <label>Property Type
-                <select id="propertyType">
-                  <option value="apartment">Apartment</option>
-                  <option value="villa">Villa</option>
-                  <option value="townhouse">Townhouse</option>
-                  <option value="studio">Studio</option>
-                </select>
-              </label>
+              <div class="grid-2 cols">
+                <label>Property Type
+                  <select id="propertyType">
+                    <option value="apartment">Apartment</option>
+                    <option value="villa">Villa</option>
+                    <option value="townhouse">Townhouse</option>
+                    <option value="studio">Studio</option>
+                  </select>
+                </label>
+                <label>Community
+                  <select id="community">
+                    <option value="">Select community</option>
+                    <option>Dubai Marina</option>
+                    <option>Downtown Dubai</option>
+                    <option>Business Bay</option>
+                    <option>Jumeirah Beach Residence (JBR)</option>
+                    <option>Palm Jumeirah</option>
+                    <option>Jumeirah Lakes Towers (JLT)</option>
+                    <option>Dubai Hills Estate</option>
+                    <option>Arabian Ranches</option>
+                    <option>DAMAC Hills</option>
+                    <option>Motor City</option>
+                    <option>Jumeirah Village Circle (JVC)</option>
+                    <option>Jumeirah Village Triangle (JVT)</option>
+                    <option>Mohammed Bin Rashid City (MBR)</option>
+                    <option>Dubai Silicon Oasis</option>
+                    <option>Dubai Sports City</option>
+                    <option>Al Barsha</option>
+                    <option>Al Furjan</option>
+                    <option>Discovery Gardens</option>
+                    <option>The Springs</option>
+                    <option>The Greens</option>
+                    <option>The Lakes</option>
+                    <option>Emirates Hills</option>
+                    <option>Dubai Creek Harbour</option>
+                    <option>Bluewaters Island</option>
+                    <option>City Walk</option>
+                    <option>Meydan</option>
+                    <option>Town Square</option>
+                    <option>Remraam</option>
+                    <option>Mudon</option>
+                    <option>Mira (Reem)</option>
+                    <option>Serena</option>
+                    <option>IMPZ / Dubai Production City</option>
+                    <option>International City</option>
+                    <option>Mirdif</option>
+                    <option>Deira</option>
+                  </select>
+                </label>
+              </div>
+              <div class="grid-2 cols">
               <label class="row">Bedrooms
-                <div class="stepper">
-                  <button type="button" class="step-btn" data-target="bedrooms" data-delta="-1">−</button>
-                  <input type="number" id="bedrooms" min="0" max="6" step="1" value="1" inputmode="numeric" />
-                  <button type="button" class="step-btn" data-target="bedrooms" data-delta="1">+</button>
-                </div>
-                <div class="hint"><span id="bedroomsVal">1</span></div>
-              </label>
-              <label class="row">Bathrooms
-                <div class="stepper">
-                  <button type="button" class="step-btn" data-target="bathrooms" data-delta="-1">−</button>
-                  <input type="number" id="bathrooms" min="1" max="5" step="1" value="1" inputmode="numeric" />
-                  <button type="button" class="step-btn" data-target="bathrooms" data-delta="1">+</button>
-                </div>
-                <div class="hint"><span id="bathroomsVal">1</span></div>
-              </label>
+                  <div class="stepper">
+                    <button type="button" class="step-btn" data-target="bedrooms" data-delta="-1">−</button>
+                    <input type="number" id="bedrooms" min="0" max="6" step="1" value="1" inputmode="numeric" />
+                    <button type="button" class="step-btn" data-target="bedrooms" data-delta="1">+</button>
+                  </div>
+                </label>
+                <label class="row">Bathrooms
+                  <div class="stepper">
+                    <button type="button" class="step-btn" data-target="bathrooms" data-delta="-1">−</button>
+                    <input type="number" id="bathrooms" min="1" max="5" step="1" value="1" inputmode="numeric" />
+                    <button type="button" class="step-btn" data-target="bathrooms" data-delta="1">+</button>
+                  </div>
+                </label>
+              </div>
               <label>Size (sqft)
                 <input type="range" id="size" min="300" max="5000" step="10" value="750" />
                 <div class="hint"><span id="sizeVal">750 ft²</span></div>
@@ -148,9 +195,10 @@
             <div class="wstep" id="step-2">
               <h3 class="step-title">Step 2 · Financing</h3>
               <label><span id="downLabel">Down Payment (%)</span>
-                <div class="pair">
+                <div class="pair has-unit">
                   <input type="range" id="downPayment" min="20" max="100" step="1" value="25" />
                   <input type="number" id="downPaymentNum" min="0" max="100" step="1" value="25" inputmode="decimal" />
+                  <span class="u">%</span>
                 </div>
                 <div class="hint"><span id="downPaymentVal">25%</span></div>
                 <div class="hint" id="downApplyHint" style="display:none">Applied to the amount remaining after pre‑handover payments.</div>
@@ -160,13 +208,14 @@
                 <div class="hint"><span id="loanTermVal">25 years</span></div>
               </label>
               <label>Interest Rate (%)
-                <div class="pair pair-lg">
+                <div class="pair pair-lg has-unit">
                   <input type="range" id="interestRate" min="0" max="10" step="0.05" value="4.5" />
                   <div class="stepper">
                     <button type="button" class="step-btn" data-target="interestRate" data-delta="-0.05">−</button>
                     <input type="number" id="interestRateNum" min="0" max="10" step="0.05" value="4.5" inputmode="decimal" />
                     <button type="button" class="step-btn" data-target="interestRate" data-delta="0.05">+</button>
                   </div>
+                  <span class="u">%</span>
                 </div>
                 <div class="hint"><span id="interestRateVal">4.5%</span></div>
               </label>
@@ -176,7 +225,7 @@
                 <div class="hint"><span id="agentFeeVal">2%</span></div>
               </label>
               <label>Additional Costs (AED)
-                <input type="number" id="additionalCosts" min="0" step="100" value="0" />
+                <input type="number" id="additionalCosts" min="0" step="100" value="0" /><span class="u-inline">AED</span>
                 <div class="hint"><span id="additionalCostsVal">AED 0</span></div>
               </label>
               <div class="mini-summary">
@@ -188,9 +237,10 @@
             <div class="wstep" id="step-3">
               <h3 class="step-title">Step 3 · Revenue</h3>
               <label>Monthly Rent (AED)
-                <div class="pair">
+                <div class="pair has-unit">
                   <input type="range" id="monthlyRent" min="2000" max="50000" step="100" value="8500" />
                   <input type="number" id="monthlyRentNum" min="0" step="50" value="8500" inputmode="numeric" />
+                  <span class="u">AED</span>
                 </div>
                 <div class="chips" id="rentChips">
                   <button type="button" data-val="8000" class="chip">AED 8k</button>
@@ -205,27 +255,34 @@
                 <div class="hint"><span id="additionalIncomeVal">AED 0</span></div>
               </label>
               <label>Vacancy Rate (%)
-                <div class="pair">
+                <div class="pair has-unit">
                   <input type="range" id="vacancyRate" min="0" max="30" step="1" value="8" />
                   <input type="number" id="vacancyRateNum" min="0" max="100" step="1" value="8" inputmode="decimal" />
+                  <span class="u">%</span>
                 </div>
                 <div class="hint"><span id="vacancyRateVal">8%</span></div>
               </label>
+              <div class="mini-summary">
+                <div>Gross Income (mo): <strong id="summaryGrossInc">AED 0</strong></div>
+                <div>Effective Income (mo): <strong id="summaryEffInc">AED 0</strong></div>
+              </div>
             </div>
 
             <div class="wstep" id="step-4">
               <h3 class="step-title">Step 4 · Expenses</h3>
               <label>Maintenance (% of rent)
-                <div class="pair">
+                <div class="pair has-unit">
                   <input type="range" id="maintenanceRate" min="0" max="10" step="0.5" value="2" />
                   <input type="number" id="maintenanceRateNum" min="0" max="100" step="0.5" value="2" inputmode="decimal" />
+                  <span class="u">%</span>
                 </div>
                 <div class="hint"><span id="maintenanceRateVal">2%</span></div>
               </label>
               <label>Management Fee (% of rent)
-                <div class="pair">
+                <div class="pair has-unit">
                   <input type="range" id="managementFee" min="0" max="15" step="0.5" value="8" />
                   <input type="number" id="managementFeeNum" min="0" max="100" step="0.5" value="8" inputmode="decimal" />
+                  <span class="u">%</span>
                 </div>
                 <div class="hint"><span id="managementFeeVal">8%</span></div>
               </label>
@@ -237,6 +294,10 @@
                 <input type="range" id="otherExpenses" min="0" max="5000" step="50" value="200" />
                 <div class="hint"><span id="otherExpensesVal">AED 200</span></div>
               </label>
+              <div class="mini-summary">
+                <div>Opex / month: <strong id="summaryOpex">AED 0</strong></div>
+                <div>Opex / year: <strong id="summaryOpexY">AED 0</strong></div>
+              </div>
             </div>
 
             
@@ -252,7 +313,14 @@
     </div>
   </section>
 
-  
+  <!-- White calculator section below hero -->
+  <section class="calc-section" id="calcSection">
+    <div class="wrap">
+      <h2 class="section-title center">Start your analysis</h2>
+      <p class="section-sub center">For buy‑to‑let properties: complete 4 steps to see Cash Flow, Yields, DSCR and 5‑year ROI.</p>
+      <!-- calculator will be moved here on load -->
+    </div>
+  </section>
 
   <main class="wrap results">
     <h2>Your Investment Analysis</h2>
@@ -264,9 +332,10 @@
           <li><span>Project</span><strong id="sumProject">—</strong></li>
           <li><span>Status</span><strong id="sumStatus">—</strong></li>
           <li><span>Type</span><strong id="sumType">—</strong></li>
+          <li><span>Community</span><strong id="sumCommunity">—</strong></li>
           <li><span>Beds/Baths</span><strong id="sumBedsBaths">—</strong></li>
           <li><span>Size</span><strong id="sumSize">—</strong></li>
-          <li class="total"><span>Price</span><strong id="sumPrice">—</strong></li>
+          <li><span>Price</span><strong id="sumPrice">—</strong></li>
         </ul>
       </div>
       <div class="card">
@@ -277,7 +346,9 @@
           <li><span>DLD</span><strong id="sumDLD">—</strong></li>
           <li><span>Term</span><strong id="sumTerm">—</strong></li>
           <li><span>Rate</span><strong id="sumRate">—</strong></li>
-          <li class="total"><span>Additional</span><strong id="sumAddCosts">—</strong></li>
+          <li><span>Additional</span><strong id="sumAddCosts">—</strong></li>
+          <li class="total"><span>Loan amount</span><strong id="sumLoanAmt">—</strong></li>
+          <li class="total"><span>Total initial</span><strong id="sumTotalInitial">—</strong></li>
         </ul>
       </div>
       <div class="card">
@@ -285,7 +356,9 @@
         <ul class="list small">
           <li><span>Rent</span><strong id="sumRent">—</strong></li>
           <li><span>Extra</span><strong id="sumInc">—</strong></li>
-          <li class="total"><span>Vacancy</span><strong id="sumVac">—</strong></li>
+          <li><span>Vacancy</span><strong id="sumVac">—</strong></li>
+          <li class="total"><span>Gross / month</span><strong id="sumGrossMo">—</strong></li>
+          <li class="total"><span>Gross / year</span><strong id="sumGrossYr">—</strong></li>
         </ul>
       </div>
       <div class="card">
@@ -294,34 +367,82 @@
           <li><span>Mgmt %</span><strong id="sumMgmt">—</strong></li>
           <li><span>Maint %</span><strong id="sumMaint">—</strong></li>
           <li><span>Insurance</span><strong id="sumIns">—</strong></li>
-          <li class="total"><span>Other</span><strong id="sumOther">—</strong></li>
+          <li><span>Other</span><strong id="sumOther">—</strong></li>
+          <li class="total"><span>Opex / month</span><strong id="sumOpexMo">—</strong></li>
+          <li class="total"><span>Opex / year</span><strong id="sumOpexYr">—</strong></li>
         </ul>
       </div>
     </div>
-    <h3 class="section-title">Grade & Summary <span class="info">i<span class="itip">Weighted: ROI 30, Net 30, DSCR 20, Gross 10, Cash Flow 10. Healthy: ROI ≥60% (5y), Net ≥6%, DSCR ≥1.2, Gross ≥8%, Cash Flow ≥ AED 0/mo.</span></span></h3>
+    <div class="section-sep" aria-hidden="true"></div>
+    <h3 class="section-title">Grade & Rent guidance</h3>
     
     <!-- Compact scorecard preview -->
-    <div class="grade-compact card" id="gradeCompact">
-      <div class="gc-head">
-        <div class="gc-tile" id="gcLetter">—</div>
-        <span class="gc-score"><b id="gcScore">—</b>/100</span>
-        <div class="gc-meta">
-          <div class="gc-row">
-            <span class="gc-verdict" id="gcVerdict">—</span>
+    <div class="grid-2 cols">
+      <div>
+        <div class="grade-compact card" id="gradeCompact">
+          <div class="gc-label">Grade <span class="info">i<span class="itip">Investment Grade is a weighted score (0–100) tailored to Dubai buy‑to‑let: ROI (5y) 30%, Net Yield 30%, DSCR 20%, Gross Yield 10%, Cash Flow 10%. Targets: ROI ≥60% (5y), Net ≥6%, DSCR ≥1.20x, Gross ≥8%, Cash Flow ≥ AED 0/mo. Each metric contributes linearly up to its target (capped), then summed to 100. Letter bands: A ≥85, B 70–84, C 50–69, D 40–49, F &lt;40.<br><br><b>Example</b><br>ROI 50% → 50/60 ≈ 0.83 × 30 ≈ 25<br>Net 5.0% → 5/6 ≈ 0.83 × 30 ≈ 25<br>DSCR 1.10× → 1.10/1.20 ≈ 0.92 × 20 ≈ 18<br>Gross 7.0% → 7/8 ≈ 0.88 × 10 ≈ 9<br>Cash flow AED 1,000 → 1000/2000 = 0.50 × 10 = 5<br><b>Total ≈ 82 → Grade B</b></span></span></div>
+          <div class="gc-head">
+            <div class="gc-tile" id="gcLetter">—</div>
+            <span class="gc-score"><b id="gcScore">—</b>/100</span>
+            <div class="gc-meta">
+              <div class="gc-row">
+                <span class="gc-verdict" id="gcVerdict">—</span>
+              </div>
+              <div class="gc-meter">
+                <div class="gc-fill" id="gcFill" style="width:0%"></div>
+                <span class="gc-bound gc-min">0</span>
+                <span class="gc-tick" style="left:60%">60</span>
+                <span class="gc-tick" style="left:70%">70</span>
+                <span class="gc-tick" style="left:80%">80</span>
+                <span class="gc-bound gc-max">100</span>
+              </div>
+              <div class="gc-drivers" id="gcDrivers">Top drivers —</div>
+              <div class="gc-chips">
+                <span class="chip-mini" id="gcPI">P&I: —</span>
+                <span class="chip-mini" id="gcCF">Cash flow: —</span>
+              </div>
+            </div>
           </div>
-          <div class="gc-meter">
-            <div class="gc-fill" id="gcFill" style="width:0%"></div>
-            <span class="gc-tick" style="left:60%">60</span>
-            <span class="gc-tick" style="left:70%">70</span>
-            <span class="gc-tick" style="left:80%">80</span>
-          </div>
-          <div class="gc-drivers" id="gcDrivers">Top drivers —</div>
+          <details class="gdetails" style="margin-top:8px">
+            <summary>Details (targets included)</summary>
+            <ul id="gcContrib" class="gcontrib micro" style="margin-top:8px"></ul>
+          </details>
         </div>
       </div>
-      <details class="gdetails" style="margin-top:8px">
-        <summary>Details (targets included)</summary>
-        <ul id="gcContrib" class="gcontrib micro" style="margin-top:8px"></ul>
-      </details>
+      <div class="card rec-compact">
+        <div class="recc-main">
+          <div class="rec-h">Rent guidance <span class="info">i<span class="itip">Shows if your current rent meets your chosen net yield. Green = above target, Red = below target (AED gap shown), Gray = near. Target rent is computed from your inputs (vacancy, fees, extra income).</span></span></div>
+          <div class="rec-rows">
+            <div class="rec-col">
+              <div class="rec-line">
+                <span class="rec-label">Current rent</span>
+                <span class="rec-cur blue" id="recCurVal">AED —</span>
+                <span class="rec-cur-net" id="recCurNet">Net&nbsp;yield —</span>
+              </div>
+            </div>
+            <div class="rec-col rec-col-right">
+              <div class="rec-line">
+                <span class="rec-label">Target rent (<span id="recTargetLbl">6.0%</span> net)</span>
+                <span class="rec-reco-val blue" id="recRecVal">AED —</span>
+                <span class="rec-diff" id="recDiff">—</span>
+              </div>
+              <label class="recc-target rec-target">Target net yield
+                <select id="recTarget">
+                  <option value="4">4%</option>
+                  <option value="4.5">4.5%</option>
+                  <option value="5">5%</option>
+                  <option value="5.5">5.5%</option>
+                  <option value="6" selected>6%</option>
+                  <option value="6.5">6.5%</option>
+                  <option value="7">7%</option>
+                  <option value="7.5">7.5%</option>
+                  <option value="8">8%</option>
+                </select>
+              </label>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
 
     <!-- Segmented pill preview -->
@@ -358,97 +479,6 @@
     </div>
 
     
-    <h3 class="section-title">Core Metrics</h3>
-    <div class="kstrip" id="kStrip">
-      <div class="kt" id="ktDSCR">
-        <div class="kt-top">
-          <span class="kt-val" id="valDSCR">—</span>
-          <span class="kt-label"><span class="chip chip-blue">DSCR</span> <span class="info">i<span class="itip">Debt service coverage ratio. Measures ability to pay the mortgage from operations: NOI ÷ monthly P&I. 1.0 = break‑even; higher is safer. Healthy ≥ 1.20x; borderline 1.00–1.20x.</span></span></span>
-        </div>
-        <div class="kt-bar"><i id="barDSCR" style="width:0%"></i></div>
-        <span class="kt-delta" id="deltaDSCR"></span>
-      </div>
-      <div class="kt" id="ktNet">
-        <div class="kt-top">
-          <span class="kt-val" id="valNet">—</span>
-          <span class="kt-label"><span class="chip chip-blue">Net Yield</span> <span class="info">i<span class="itip">Annual net operating income after operating costs and vacancy ÷ purchase price. Shows asset efficiency, independent of financing. Healthy ≥ 6%; fair 4–6%.</span></span></span>
-        </div>
-        <div class="kt-bar"><i id="barNet" style="width:0%"></i></div>
-        <span class="kt-delta" id="deltaNet"></span>
-      </div>
-      <div class="kt" id="ktGross">
-        <div class="kt-top">
-          <span class="kt-val" id="valGross">—</span>
-          <span class="kt-label"><span class="chip chip-blue">Gross Yield</span> <span class="info">i<span class="itip">Annual rent ÷ price before any expenses. Quick market comparator; pair with Net Yield for realism. Healthy ≥ 8%; fair 6–8%.</span></span></span>
-        </div>
-        <div class="kt-bar"><i id="barGross" style="width:0%"></i></div>
-        <span class="kt-delta" id="deltaGross"></span>
-      </div>
-      <div class="kt" id="ktCF">
-        <div class="kt-top">
-          <span class="kt-val" id="valCF">—</span>
-          <span class="kt-label"><span class="chip chip-blue">Cash Flow</span> <span class="info">i<span class="itip">Monthly liquidity: effective rent + other income minus operating costs and mortgage. Negative means you must fund the shortfall. Healthy ≥ AED 0/month; buffer ≥ AED 500.</span></span></span>
-        </div>
-        <div class="kt-bar"><i id="barCF" style="width:0%"></i></div>
-        <span class="kt-delta" id="deltaCF"></span>
-      </div>
-      <div class="kt" id="ktROI">
-        <div class="kt-top">
-          <span class="kt-val" id="valROI">—</span>
-          <span class="kt-label"><span class="chip chip-blue">ROI (5y)</span> <span class="info">i<span class="itip">Total return over five years from cash flow, principal paydown, and assumed appreciation. A simplified estimate for quick comparison. Healthy ≥ 60% (5y); fair 40–60%.</span></span></span>
-        </div>
-        <div class="kt-bar"><i id="barROI" style="width:0%"></i></div>
-        <span class="kt-delta" id="deltaROI"></span>
-      </div>
-      <div class="kt neutral" id="ktPI">
-        <div class="kt-top">
-          <span class="kt-val" id="valPI">AED 0</span>
-          <span class="kt-label"><span class="chip chip-blue">Monthly P&I</span> <span class="info">i<span class="itip">Mortgage principal + interest per month</span></span></span>
-        </div>
-      </div>
-    </div>
-    <div class="grid-2 cols">
-      <div class="card breakdown">
-        <h3>Financial Breakdown</h3>
-        <ul class="list">
-          <li><span>Down Payment <span class="info">i<span class="itip">Initial equity contribution (based on Price × down %).</span></span></span><strong id="dpOut">$0</strong></li>
-          <li><span>Loan Amount <span class="info">i<span class="itip">Property value minus down payment. Used to compute P&I.</span></span></span><strong id="loanOut">$0</strong></li>
-          <li><span>Monthly Principal & Interest <span class="info">i<span class="itip">Monthly debt service at current interest rate and term.</span></span></span><strong id="piOut">$0</strong></li>
-          <li><span>Monthly Cash Flow <span class="info">i<span class="itip">Effectieve huur − opex − P&I. Healthy ≥ AED 0/mo (buffer ≥ AED 500).</span></span></span><strong id="mcfOut">$0</strong></li>
-          <li><span>Annual Cash Flow <span class="info">i<span class="itip">Monthly cash flow × 12.</span></span></span><strong id="acfOut">$0</strong></li>
-          <li class="total"><span>Net Cash Outlay (5 years) <span class="info">i<span class="itip">Initial cash + (Opex + Debt service − Income) × 60</span></span></span><strong id="ncoOut">$0</strong></li>
-          <li><span>Debt Service + Initial Cash (5 years) <span class="info">i<span class="itip">Quick reference: Initial cash + (P&I × 60). Excludes opex and rent.</span></span></span><strong id="dsiOut">$0</strong></li>
-        </ul>
-      </div>
-      <div class="card rec-compact">
-        <div class="recc-main">
-          <div class="rec-h">Rental Price Recommendation <span class="info">i<span class="itip">Current = the rent you entered. Recommended = model estimate to reach your chosen net yield. Method: target NOI = target% × price; adjusted for vacancy and expenses to solve gross rent.</span></span></div>
-          <div class="recc-amount">
-            <div class="rec-val blue" id="recSuggest">AED —</div>
-            <label class="recc-target">Target net yield
-              <select id="recTarget">
-                <option value="4">4%</option>
-                <option value="4.5">4.5%</option>
-                <option value="5">5%</option>
-                <option value="5.5">5.5%</option>
-                <option value="6" selected>6%</option>
-                <option value="6.5">6.5%</option>
-                <option value="7">7%</option>
-                <option value="7.5">7.5%</option>
-                <option value="8">8%</option>
-              </select>
-            </label>
-          </div>
-          <div class="rec-inline" id="recInline" style="display:none">—</div>
-        </div>
-        <div class="recc-row">
-          <span class="chip-mini" id="recCurrentChip">Current: <b id="recCurrent">AED —</b></span>
-          <span class="chip-mini" id="recDeltaChip">—</span>
-          <span class="recc-status" id="recStatus">—</span>
-        </div>
-        <div class="rec-help">Net yield aligns with Key Metrics methodology.</div>
-      </div>
-    </div>
 
     
 
@@ -464,10 +494,7 @@
       </div>
     </div>
 
-    <div class="card ai-box" style="margin-top:12px">
-      <h3>Recommendations <span class="info">i<span class="itip">Top 3 action items based on your inputs. Not advice.</span></span></h3>
-      <div id="recs" class="recs muted">Run a calculation to see recommendations.</div>
-    </div>
+    
 
     
   </main>
@@ -475,19 +502,62 @@
   <section class="cta-band">
     <div class="wrap center">
       <h3>Ready to Make Smarter Property Investments?</h3>
-      <p>Join thousands of investors using PropAI to maximize their returns and minimize risk.</p>
+      <p>Join other investors using Smart Property Analyzer to maximize returns and reduce risk.</p>
       <div class="cta">
-        <button class="btn">Start Free Trial</button>
-        <button class="btn ghost">Schedule Demo</button>
+        <a class="btn white" href="#calcStart">Start analysis</a>
+        <a class="btn ghost" href="steps.html">Learn more</a>
       </div>
     </div>
   </section>
 
   <section class="wrap testimonials">
-    <div class="tgrid">
-      <div class="tcard"><p>“PropAI helped me quickly understand property ROI and choose the best deal.”</p><div class="tauthor">— Alex R.</div></div>
-      <div class="tcard"><p>“The calculator is perfect for sanity checks before I call my broker.”</p><div class="tauthor">— Sarah M.</div></div>
-      <div class="tcard"><p>“Clear, fast, and insightful. A must for my portfolio decisions.”</p><div class="tauthor">— Robert C.</div></div>
+    <div class="twrap">
+      <button class="tbtn tprev" type="button" aria-label="Previous">‹</button>
+      <div class="tstrip" id="tstrip">
+        <div class="tcard">
+          <img class="tavatar" src="https://images.unsplash.com/photo-1544005313-94ddf0286df2?w=96&h=96&fit=crop&crop=faces" alt="Alex R. avatar" />
+          <div class="ttext">
+            <p>“Clear Dubai ROI in minutes — helped me avoid overpaying.”</p>
+            <div class="tauthor">— Alex R., Investor</div>
+          </div>
+        </div>
+        <div class="tcard">
+          <img class="tavatar" src="https://images.unsplash.com/photo-1527980965255-d3b416303d12?w=96&h=96&fit=crop&crop=faces" alt="Sarah M. avatar" />
+          <div class="ttext">
+            <p>“I sanity‑check price, rent, and DSCR before calling my broker.”</p>
+            <div class="tauthor">— Sarah M., Landlord</div>
+          </div>
+        </div>
+        <div class="tcard">
+          <img class="tavatar" src="https://images.unsplash.com/photo-1547425260-76bcadfb4f2c?w=96&h=96&fit=crop&crop=faces" alt="Robert C. avatar" />
+          <div class="ttext">
+            <p>“Concise, fast, and the PDF is client‑ready.”</p>
+            <div class="tauthor">— Robert C., Agent</div>
+          </div>
+        </div>
+        <div class="tcard">
+          <img class="tavatar" src="https://images.unsplash.com/photo-1519345182560-3f2917c472ef?w=96&h=96&fit=crop&crop=faces" alt="Nadia K. avatar" />
+          <div class="ttext">
+            <p>“Love the rent guidance — it matches the market in my area.”</p>
+            <div class="tauthor">— Nadia K., Owner‑occupier</div>
+          </div>
+        </div>
+        <div class="tcard">
+          <img class="tavatar" src="https://images.unsplash.com/photo-1511367461989-f85a21fda167?w=96&h=96&fit=crop&crop=faces" alt="Omar H. avatar" />
+          <div class="ttext">
+            <p>“The DSCR and cash flow checks save me time with lenders.”</p>
+            <div class="tauthor">— Omar H., Investor</div>
+          </div>
+        </div>
+        <div class="tcard">
+          <img class="tavatar" src="https://images.unsplash.com/photo-1541216970279-affbfdd55aa8?w=96&h=96&fit=crop&crop=faces" alt="Priya S. avatar" />
+          <div class="ttext">
+            <p>“Clear, modern analysis — perfect to share with clients.”</p>
+            <div class="tauthor">— Priya S., Broker</div>
+          </div>
+        </div>
+      </div>
+      <button class="tbtn tnext" type="button" aria-label="Next">›</button>
     </div>
   </section>
 
