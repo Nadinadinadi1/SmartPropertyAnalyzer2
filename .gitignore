@@ -1,0 +1,28 @@
+# OS/editor
+.DS_Store
+Thumbs.db
+*.log
+.idea/
+.vscode/
+.cursor/
+
+# Node/web tooling (if present)
+node_modules/
+dist/
+build/
+.parcel-cache/
+.cache/
+
+# Environment/credentials
+.env
+.env.*
+
+# Vercel/Netlify
+.vercel/
+.netlify/
+
+# Misc
+*.tmp
+*.swp
+*.bak
+

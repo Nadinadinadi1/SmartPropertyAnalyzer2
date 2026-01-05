@@ -14,14 +14,21 @@ function remainingBalance(principal, annualRatePct, years, monthsElapsed){
   return Math.max(0, bal);
 }
 
-function computeGrade(cashOnCash, netYield, grossYield, roi){
-  // roi = total ROI over 5 years (%)
-  const B={gross:{excellent:8,good:6,avg:4}, net:{excellent:6,good:4,avg:2}, roi:{excellent:60,good:45,avg:30}, cash:{excellent:2000,good:1000,avg:500}};
+function computeGrade(monthlyCashFlow, netYield, grossYield, roi, dscr){
+  // Dubai-weighted: ROI 30, Net 30, DSCR 20, Gross 10, CashFlow 10
+  const B={
+    gross:{excellent:8,good:6,avg:4},
+    net:{excellent:6,good:4,avg:2},
+    roi:{excellent:60,good:45,avg:30},
+    dscr:{excellent:1.3,good:1.2,avg:1.0},
+    cash:{excellent:2000,good:1000,avg:500}
+  };
   let score=0;
   if(roi>=B.roi.excellent) score+=30; else if(roi>=B.roi.good) score+=24; else if(roi>=B.roi.avg) score+=18; else score+=12;
-  if(cashOnCash>=B.cash.excellent) score+=25; else if(cashOnCash>=B.cash.good) score+=20; else if(cashOnCash>=B.cash.avg) score+=15; else if(cashOnCash>=0) score+=10;
-  if(netYield>=B.net.excellent) score+=25; else if(netYield>=B.net.good) score+=20; else if(netYield>=B.net.avg) score+=15; else score+=10;
-  if(grossYield>=B.gross.excellent) score+=20; else if(grossYield>=B.gross.good) score+=16; else if(grossYield>=B.gross.avg) score+=12; else score+=8;
+  if(netYield>=B.net.excellent) score+=30; else if(netYield>=B.net.good) score+=24; else if(netYield>=B.net.avg) score+=18; else score+=12;
+  if(dscr>=B.dscr.excellent) score+=20; else if(dscr>=B.dscr.good) score+=16; else if(dscr>=B.dscr.avg) score+=12; else score+=8;
+  if(grossYield>=B.gross.excellent) score+=10; else if(grossYield>=B.gross.good) score+=8; else if(grossYield>=B.gross.avg) score+=6; else score+=4;
+  if(monthlyCashFlow>=B.cash.excellent) score+=10; else if(monthlyCashFlow>=B.cash.good) score+=8; else if(monthlyCashFlow>=B.cash.avg) score+=6; else if(monthlyCashFlow>=0) score+=4; else score+=2;
   const grade = score>=90?'A+':score>=85?'A':score>=80?'A-':score>=75?'B+':score>=70?'B':score>=65?'B-':score>=60?'C+':score>=55?'C':score>=50?'C-':score>=40?'D':'F';
   const desc = grade.startsWith('A')?'Excellent investment potential': grade.startsWith('B')?'Solid investment verify assumptions': grade.startsWith('C')?'Borderline; negotiate price/terms': grade==='D'?'Weak; high risk':'Not recommended';
   return {score, grade, description:desc};
@@ -49,18 +56,41 @@ function calculate(){
   const annualInsurance = valNum('annualInsurance');
   const otherExpenses = valNum('otherExpenses');
 
-  // Growth
-  const rentGrowth = valNum('rentGrowth');
-  const appreciation = valNum('propertyAppreciation');
+  // Growth (Basic: fixed defaults, Pro exposes controls)
+  const rentGrowth = 0;           // %/yr
+  const appreciation = 3;         // %/yr
+  const expenseInflation = 2;     // %/yr
 
   safeSetText('downPaymentVal', formatPercent(downPct,0));
   safeSetText('vacancyRateVal', formatPercent(vacancyRate,0));
 
-  const downPayment = pv * (downPct/100);
+  const statusVal_calc = (document.getElementById('status')||{}).value || 'ready';
+  let downPayment = pv * (downPct/100);
   const agentFee = pv * (agentFeePct/100);
   const dldFee = dldFeeEnabled ? pv * 0.04 : 0;
-  const loanAmount = Math.max(0, pv - downPayment);
-  const totalInitial = downPayment + agentFee + dldFee + additionalCosts;
+  let loanAmount = Math.max(0, pv - downPayment);
+  let totalInitial = downPayment + agentFee + dldFee + additionalCosts;
+  // Off-plan handling: split pre-handover cash and down at handover
+  if(statusVal_calc==='offplan'){
+    const prePct = valNum('preHandoverPct');
+    const preCash = pv * (prePct/100);
+    const remain = Math.max(0, pv - preCash);
+    const downAtHandover = remain * (downPct/100);
+    loanAmount = Math.max(0, remain - downAtHandover);
+    downPayment = downAtHandover;
+    totalInitial = preCash + downAtHandover + agentFee + dldFee + additionalCosts;
+    // update offplan chips
+    const oc=document.getElementById('offplanChips');
+    if(oc){ oc.style.display='flex'; }
+    safeSetText('chipPre', `Pre-handover: ${formatCurrencyAED(preCash)}`);
+    safeSetText('chipDown', `Handover down: ${formatCurrencyAED(downAtHandover)}`);
+    safeSetText('chipLoan', `Loan after handover: ${formatCurrencyAED(loanAmount)}`);
+    const warn = (prePct + downPct) > 100 + 1e-6;
+    const cw = document.getElementById('chipWarn'); if(cw){ cw.style.display = warn? 'inline-flex':'none'; cw.textContent = 'Pre + handover down > 100%'; }
+  }else{
+    const oc=document.getElementById('offplanChips');
+    if(oc){ oc.style.display='none'; }
+  }
   safeSetText('summaryLoan', formatCurrencyAED(loanAmount));
   safeSetText('summaryInitial', formatCurrencyAED(totalInitial));
 
@@ -69,19 +99,21 @@ function calculate(){
 
   const grossMonthlyIncome = rent + addInc;
   const effectiveIncome = grossMonthlyIncome * (1 - vacancyRate/100);
-  const monthlyMaint = rent * (maintRate/100);
-  const monthlyMgmt  = rent * (mgmtRate/100);
+  const monthlyMaint = effectiveIncome * (maintRate/100);
+  const monthlyMgmt  = effectiveIncome * (mgmtRate/100);
   const monthlyOpex  = monthlyMaint + monthlyMgmt + baseFee + (annualInsurance/12) + (otherExpenses/12);
   const monthlyCashFlow = effectiveIncome - monthlyOpex - monthlyPayment;
   const annualCashFlow = monthlyCashFlow * 12;
-  const cashOnCash = downPayment>0 ? (annualCashFlow / downPayment) * 100 : NaN;
+  const cashOnCash = totalInitial>0 ? (annualCashFlow / totalInitial) * 100 : NaN;
 
   const annualRentGross = (rent + addInc) * 12;
-  const annualVacancy = annualRentGross * (vacancyRate/100);
+  const annualEffective = effectiveIncome * 12;
   const annualOpex = monthlyMaint*12 + monthlyMgmt*12 + baseFee*12 + annualInsurance + otherExpenses;
-  const NOI = annualRentGross - annualVacancy - annualOpex;
+  const NOI = annualEffective - annualOpex;
   const grossYield = pv>0 ? (annualRentGross/pv)*100 : NaN;
   const netYield   = pv>0 ? (NOI/pv)*100 : NaN;
+  const noiMonthly = effectiveIncome - (monthlyMaint + monthlyMgmt + baseFee + (annualInsurance/12) + (otherExpenses/12));
+  const dscr = monthlyPayment>0 ? (noiMonthly / monthlyPayment) : NaN;
 
   // 5-year ROI approximation
   const remaining5 = remainingBalance(loanAmount, ratePct, years, 60);
@@ -97,19 +129,205 @@ function calculate(){
   safeSetText('totalROI', formatPercent(roi5,1));
   safeSetText('netYield', formatPercent(netYield,1));
   safeSetText('grossYield', formatPercent(grossYield,1));
+  safeSetText('dscrVal', isFinite(dscr)? dscr.toFixed(2): '—');
+  // Compact strip values
+  safeSetText('valPI', formatCurrencyAED(monthlyPayment));
+  safeSetText('valDSCR', isFinite(dscr)? dscr.toFixed(2)+'x':'—');
+  safeSetText('valNet', formatPercent(netYield,1));
+  safeSetText('valGross', formatPercent(grossYield,1));
+  safeSetText('valCF', formatCurrencyAED(monthlyCashFlow)+'/mo');
+  safeSetText('valROI', formatPercent(roi5,0));
+  const w=(v,t)=> Math.max(0, Math.min(100, (isFinite(v)&&t>0)? (v/t*100):0));
+  const setW=(id,p)=>{ const el=$(id); if(el){ el.style.width = Math.round(p)+'%'; } };
+  setW('barDSCR', w(dscr,1.2));
+  setW('barNet', w(netYield,6));
+  setW('barGross', w(grossYield,8));
+  setW('barCF', w(Math.max(0, monthlyCashFlow), 2000));
+  setW('barROI', w(roi5,60));
+  const setStateKt=(ktId,state)=>{ const el=document.getElementById(ktId); if(el){ el.classList.remove('good','warn','bad'); if(state) el.classList.add(state); } };
+  setStateKt('ktDSCR', dscr>=1.2?'good':dscr>=1.0?'warn':'bad');
+  setStateKt('ktNet', netYield>=6?'good':netYield>=4?'warn':'bad');
+  setStateKt('ktGross', grossYield>=8?'good':grossYield>=6?'warn':'bad');
+  setStateKt('ktCF', monthlyCashFlow>=0?'good':monthlyCashFlow>=-200?'warn':'bad');
+  setStateKt('ktROI', roi5>=60?'good':roi5>=40?'warn':'bad');
+  // Delta chips vs healthy targets
+  const setDeltaChip=(id, delta, fmt, warnBand)=>{
+    const el=$(id); if(!el) return;
+    let cls='bad', arrow='↓';
+    if(delta >= 0){ cls='good'; arrow='↑'; }
+    else if(delta >= -warnBand){ cls='warn'; arrow='→'; }
+    el.className = 'kt-delta ' + cls;
+    el.innerHTML = `${fmt(delta)} <span class="arr">${arrow}</span>`;
+  };
+  const fmtPct = (v)=> (v>=0?'+':'')+Math.abs(v).toFixed(1)+'%';
+  const fmtPct0 = (v)=> (v>=0?'+':'')+Math.round(Math.abs(v))+'%';
+  const fmtX   = (v)=> (v>=0?'+':'')+Math.abs(v).toFixed(2)+'x';
+  const fmtAED = (v)=> (v>=0?'+':'−')+Math.abs(Math.round(v)).toLocaleString('en-US');
+  setDeltaChip('deltaDSCR', dscr-1.2, fmtX, 0.2);
+  setDeltaChip('deltaNet',  netYield-6.0, fmtPct, 2.0);
+  setDeltaChip('deltaGross',grossYield-8.0, fmtPct, 2.0);
+  setDeltaChip('deltaROI',  roi5-60.0, fmtPct0, 20.0);
+  // Cash flow: target 0, warn band 200
+  (function(){
+    const id='deltaCF'; const el=$(id); if(!el) return;
+    const delta = monthlyCashFlow;
+    let cls='bad', arrow='↓';
+    if(delta>=0){ cls='good'; arrow='↑'; }
+    else if(delta>=-200){ cls='warn'; arrow='→'; }
+    el.className='kt-delta '+cls;
+    el.innerHTML = `${fmtAED(delta)} <span class="arr">${arrow}</span>`;
+  })();
+  // Rental price recommendation
+  (function(){
+    const sel=document.getElementById('recTarget');
+    const targetPct = sel ? parseFloat(sel.value||'6') : 6;
+    const t = targetPct/100;
+    const v = vacancyRate/100;
+    const varPct = (mgmtRate+maintRate)/100;
+    const k = 12 * (1 - v - varPct);
+    const fixed = baseFee*12 + annualInsurance + otherExpenses;
+    const b = 12*(1 - v)*addInc - fixed;
+    let recR = NaN;
+    if(k>0){
+      recR = (pv*t - b) / k;
+      if(!isFinite(recR) || recR<0) recR=0;
+    }
+    const cur = rent;
+    const recEl=$('recSuggest'); if(recEl) recEl.textContent = formatCurrencyAED(recR);
+    const curEl=$('recCurrent'); if(curEl) curEl.textContent = formatCurrencyAED(cur);
+    const st=$('recStatus');
+    if(st){
+      if(isFinite(recR) && cur<recR-1){
+        st.textContent='Below recommended'; st.className='recc-status bad';
+      }else if(isFinite(recR) && cur>recR+1){
+        st.textContent='Above recommended'; st.className='recc-status good';
+      }else{
+        st.textContent='At or near recommended'; st.className='recc-status';
+      }
+    }
+    const delta=$('recDelta');
+    if(delta){
+      const diff = recR - cur;
+      let cls='warn', arrow='→', txt='AED 0';
+      if(diff>1){ cls='good'; arrow='↑'; txt = '+AED '+Math.round(diff).toLocaleString('en-US'); }
+      else if(diff<-1){ cls='bad'; arrow='↓'; txt = '−AED '+Math.abs(Math.round(diff)).toLocaleString('en-US'); }
+      delta.className='rec-delta '+cls;
+      delta.textContent = `${txt} ${arrow}`;
+    }
+    // update chips in compact row
+    const chipCur=$('recCurrentChip'); if(chipCur){ /* text already set via #recCurrent */ }
+    const chipDelta=$('recDeltaChip');
+    if(chipDelta){
+      const diff = recR - cur;
+      let cls='warn', arrow='→', txt='AED 0';
+      if(diff>1){ cls='good'; arrow='↑'; txt = '+AED '+Math.round(diff).toLocaleString('en-US'); }
+      else if(diff<-1){ cls='bad'; arrow='↓'; txt = '−AED '+Math.abs(Math.round(diff)).toLocaleString('en-US'); }
+      chipDelta.className='chip-mini '+(cls==='good'?'':cls==='bad'?'warn':''); // keep neutral styling
+      chipDelta.textContent = `${txt} ${arrow}`;
+    }
+    // inline chip directly under the recommended amount
+    const inl=$('recInline');
+    if(inl){
+      const diff = recR - cur;
+      if(Math.abs(diff)<=1 || !isFinite(diff)){
+        inl.style.display='none';
+      }else{
+        let cls='warn', arrow='→', txt='AED 0';
+        if(diff>1){ cls='good'; arrow='↑'; txt = '+AED '+Math.round(diff).toLocaleString('en-US'); }
+        else { cls='bad'; arrow='↓'; txt = '−AED '+Math.abs(Math.round(diff)).toLocaleString('en-US'); }
+        inl.className='rec-inline '+cls;
+        inl.textContent = `${txt} ${arrow}`;
+        inl.style.display='block';
+      }
+    }
+    // expose for recommendations section
+    window._recSuggestRent = recR;
+    window._recRentDiff = (isFinite(recR)? recR - cur : 0);
+    window._recTargetPct = targetPct;
+    if(sel && !sel._bound){
+      sel._bound=true; sel.addEventListener('change', calculate);
+    }
+  })();
   safeSetText('dpOut', formatCurrencyAED(downPayment));
   safeSetText('loanOut', formatCurrencyAED(loanAmount));
   safeSetText('piOut', formatCurrencyAED(monthlyPayment));
   safeSetText('mcfOut', formatCurrencyAED(monthlyCashFlow));
   safeSetText('acfOut', formatCurrencyAED(annualCashFlow));
-  const totalInvestment5 = totalInitial + monthlyPayment*12*5;
-  safeSetText('tiOut', formatCurrencyAED(totalInvestment5));
+  const debtService5 = monthlyPayment*12*5;
+  const netCashOutlay5 = totalInitial + (monthlyOpex + monthlyPayment - effectiveIncome) * 60;
+  safeSetText('ncoOut', formatCurrencyAED(netCashOutlay5));
+  safeSetText('dsiOut', formatCurrencyAED(totalInitial + debtService5));
+
+  // Input Summary (top of results)
+  const statusVal = (document.getElementById('status')||{}).value || 'ready';
+  const handoverSel = document.getElementById('handover');
+  const handoverVal = (handoverSel && handoverSel.value) ? ` (${handoverSel.value})` : '';
+  safeSetText('sumProject', (document.getElementById('projectName')||{}).value || '—');
+  safeSetText('sumStatus', statusVal==='offplan' ? ('Off-plan'+handoverVal) : 'Completed');
+  safeSetText('sumType', (document.getElementById('propertyType')||{}).value || '—');
+  safeSetText('sumBedsBaths', `${(document.getElementById('bedrooms')||{}).value || '-'}/${(document.getElementById('bathrooms')||{}).value || '-'}`);
+  safeSetText('sumSize', `${(document.getElementById('size')||{}).value || '-'} ft²`);
+  safeSetText('sumPrice', formatCurrencyAED(pv));
+  safeSetText('sumDown', formatPercent(downPct,0));
+  safeSetText('sumAgent', formatPercent(agentFeePct,1));
+  safeSetText('sumDLD', dldFeeEnabled ? 'On' : 'Off');
+  safeSetText('sumTerm', `${years} yrs`);
+  safeSetText('sumRate', formatPercent(ratePct,2));
+  safeSetText('sumAddCosts', formatCurrencyAED(additionalCosts));
+  safeSetText('sumRent', formatCurrencyAED(rent));
+  safeSetText('sumInc', formatCurrencyAED(addInc));
+  safeSetText('sumVac', formatPercent(vacancyRate,0));
+  safeSetText('sumMgmt', formatPercent(mgmtRate,1));
+  safeSetText('sumMaint', formatPercent(maintRate,1));
+  safeSetText('sumIns', formatCurrencyAED(annualInsurance));
+  safeSetText('sumOther', formatCurrencyAED(otherExpenses));
+  // Hide zero/empty rows
+  const hideIfZero=(strongId, val)=>{
+    const el=document.getElementById(strongId);
+    if(!el) return;
+    const li=el.closest('li');
+    if(!li) return;
+    const isZero = !isFinite(val) || Number(val)===0;
+    li.style.display = isZero ? 'none' : '';
+  };
+  hideIfZero('sumAddCosts', additionalCosts);
+  hideIfZero('sumInc', addInc);
+  hideIfZero('sumIns', annualInsurance);
+  hideIfZero('sumOther', otherExpenses);
 
   // Grade
-  const g = computeGrade(monthlyCashFlow, netYield, grossYield, roi5);
+  const g = computeGrade(monthlyCashFlow, netYield, grossYield, roi5, dscr);
   window._lastGradeInfo = g;
   safeSetText('gradeLetter', g.grade);
   safeSetText('gradeDesc', g.description);
+  // color class and score pin
+  const box=document.querySelector('.grade-box');
+  if(box){ box.classList.remove('A','B','C','D','F'); box.classList.add((g.grade||'')[0]||''); }
+  const pin=document.getElementById('gradePin'); if(pin){ pin.style.left = Math.min(100, Math.max(0, Math.round((g.score||0)))) + '%'; }
+  // compact card preview populate
+  const cg=document.getElementById('gradeCompact');
+  if(cg){
+    cg.classList.remove('A','B','C','D','F'); cg.classList.add((g.grade||'')[0]||'');
+    const title=document.getElementById('gcLetter'); if(title) title.textContent = (g.grade||'—')[0]||'—';
+    const sc=document.getElementById('gcScore'); if(sc) sc.textContent = String(Math.round(g.score||0));
+    const vd=document.getElementById('gcVerdict'); if(vd) vd.textContent = g.description || '—';
+    const fill=document.getElementById('gcFill'); if(fill) fill.style.width = Math.min(100, Math.round(g.score||0)) + '%';
+    const drivers=document.getElementById('gcDrivers');
+    if(drivers){
+      const roiStr = isFinite(roi5)? formatPercent(roi5,0):'—';
+      const dscrStr = isFinite(dscr)? dscr.toFixed(2)+'x':'—';
+      const netStr = isFinite(netYield)? formatPercent(netYield,1):'—';
+      drivers.textContent = `Top drivers: ROI ${roiStr}, DSCR ${dscrStr}, Net ${netStr}`;
+    }
+  }
+  // Update Down label depending on status
+  (function(){
+    const lab=document.getElementById('downLabel');
+    const st=(document.getElementById('status')||{}).value||'ready';
+    if(lab) lab.textContent = (st==='offplan') ? 'Handover down payment (%)' : 'Down Payment (%)';
+    const dh=document.getElementById('downApplyHint');
+    if(dh){ dh.style.display = (st==='offplan') ? 'block':'none'; }
+  })();
   // chips/flags removed as requested
   // populate grade rationale: show how each metric contributed to the score
   const contrib=document.getElementById('gradeContrib');
@@ -117,9 +335,10 @@ function calculate(){
     contrib.innerHTML='';
     const items=[
       {name:'ROI (5y)', weight:30, value:roi5, target:60, unit:'%', achieved: Math.max(0, Math.min(1, roi5/60))},
-      {name:'Cash Flow', weight:25, value:monthlyCashFlow, target:2000, unit:' AED/mo', achieved: Math.max(0, Math.min(1, monthlyCashFlow/2000))},
-      {name:'Net Yield', weight:25, value:netYield, target:6, unit:'%', achieved: Math.max(0, Math.min(1, netYield/6))},
-      {name:'Gross Yield', weight:20, value:grossYield, target:8, unit:'%', achieved: Math.max(0, Math.min(1, grossYield/8))}
+      {name:'Net Yield', weight:30, value:netYield, target:6, unit:'%', achieved: Math.max(0, Math.min(1, netYield/6))},
+      {name:'DSCR', weight:20, value:dscr, target:1.2, unit:'x', achieved: Math.max(0, Math.min(1, dscr/1.2))},
+      {name:'Gross Yield', weight:10, value:grossYield, target:8, unit:'%', achieved: Math.max(0, Math.min(1, grossYield/8))},
+      {name:'Cash Flow', weight:10, value:monthlyCashFlow, target:2000, unit:' AED/mo', achieved: Math.max(0, Math.min(1, monthlyCashFlow/2000))}
     ];
     let totalScore=0;
     items.forEach(it=>{ totalScore += it.weight * it.achieved; });
@@ -127,16 +346,140 @@ function calculate(){
     const bar=document.getElementById('gradeBar'); if(bar){ bar.style.width = Math.min(100, Math.round(totalScore)) + '%'; }
     items.forEach(it=>{
       const li=document.createElement('li'); li.className='gitem ' + (it.achieved>=1?'good':it.achieved>=0.7?'warn':'bad');
-      li.innerHTML = `<div class="head"><span class="name">${it.name}</span><span class="chip">${it.weight}% weight</span><span class="pct">${Math.round(it.achieved*100)}% of target</span></div>`;
+      li.innerHTML = `<div class="head"><span class="name">${it.name}</span><span class="pct">${Math.round(it.achieved*100)}% of target</span></div>`;
       const bar=document.createElement('div'); bar.className='bar'; const fill=document.createElement('i'); fill.style.width=(Math.min(100, Math.round(it.achieved*100)))+'%'; bar.appendChild(fill); li.appendChild(bar);
       const sub=document.createElement('div'); sub.className='sub';
-      const val = it.unit==='%'? formatPercent(it.value,1): (isFinite(it.value)? ('AED '+Math.round(it.value).toLocaleString('en-US')+'/mo'):'—');
-      sub.textContent = `Value: ${val} • Target: ${it.target}${it.unit}`;
+      const val = it.unit==='%'? formatPercent(it.value,1): (it.unit==='x'? (isFinite(it.value)? it.value.toFixed(2)+'x':'—'): (isFinite(it.value)? ('AED '+Math.round(it.value).toLocaleString('en-US')+'/mo'):'—'));
+      sub.textContent = `${val} • Target: ${it.target}${it.unit}`;
+      // delta chip vs healthy thresholds (Cash Flow uses 0 not 2000)
+      let dVal=0, warnBand=0, unit=it.unit, goodThresh=0;
+      if(it.name==='ROI (5y)'){ dVal = (isFinite(roi5)? roi5-60:0); warnBand=20; unit='%'; }
+      else if(it.name==='Net Yield'){ dVal = (isFinite(netYield)? netYield-6:0); warnBand=2; unit='%'; }
+      else if(it.name==='DSCR'){ dVal = (isFinite(dscr)? dscr-1.2:0); warnBand=0.2; unit='x'; }
+      else if(it.name==='Gross Yield'){ dVal = (isFinite(grossYield)? grossYield-8:0); warnBand=2; unit='%'; }
+      else if(it.name==='Cash Flow'){ dVal = (isFinite(monthlyCashFlow)? monthlyCashFlow:0); warnBand=200; unit='AED'; }
+      const chip=document.createElement('span'); chip.className='dchip';
+      let cls='bad', arrow='↓', text='';
+      if(it.name==='Cash Flow'){
+        if(dVal>=0){ cls='good'; arrow='↑'; text = (dVal>=0?'+':'−')+Math.abs(Math.round(dVal)).toLocaleString('en-US'); }
+        else if(dVal>=-warnBand){ cls='warn'; arrow='→'; text = (dVal>=0?'+':'−')+Math.abs(Math.round(dVal)).toLocaleString('en-US'); }
+        else { text = (dVal>=0?'+':'−')+Math.abs(Math.round(dVal)).toLocaleString('en-US'); }
+        chip.textContent = `${text} ${arrow}`;
+      }else{
+        if(dVal>=0){ cls='good'; arrow='↑'; }
+        else if(dVal>=-warnBand){ cls='warn'; arrow='→'; }
+        const fmt = (unit==='x')? ((v)=>(v>=0?'+':'')+Math.abs(v).toFixed(2)+'x') : ((v)=>(v>=0?'+':'')+Math.abs(v).toFixed(1)+'%');
+        chip.textContent = `${fmt(dVal)} ${arrow}`;
+      }
+      chip.className += ' '+cls;
+      sub.appendChild(chip);
       li.appendChild(sub);
       contrib.appendChild(li);
     });
+    // Populate compact details list too
+    const c2=document.getElementById('gcContrib');
+    if(c2){
+      c2.innerHTML='';
+      items.forEach(it=>{
+        const li=document.createElement('li'); li.className='gitem ' + (it.achieved>=1?'good':it.achieved>=0.7?'warn':'bad');
+        li.innerHTML = `<div class="head"><span class="name">${it.name}</span><span class="pct">${Math.round(it.achieved*100)}% of target</span></div>`;
+        const bar=document.createElement('div'); bar.className='bar'; const fill=document.createElement('i'); fill.style.width=(Math.min(100, Math.round(it.achieved*100)))+'%'; bar.appendChild(fill); li.appendChild(bar);
+        const sub=document.createElement('div'); sub.className='sub';
+        const val = it.unit==='%'? formatPercent(it.value,1): (it.unit==='x'? (isFinite(it.value)? it.value.toFixed(2)+'x':'—'): (isFinite(it.value)? ('AED '+Math.round(it.value).toLocaleString('en-US')+'/mo'):'—'));
+        sub.textContent = `${val} • Target: ${it.target}${it.unit}`;
+        // delta chip (same as above)
+        let dVal=0, warnBand=0, unit=it.unit;
+        if(it.name==='ROI (5y)'){ dVal = (isFinite(roi5)? roi5-60:0); warnBand=20; unit='%'; }
+        else if(it.name==='Net Yield'){ dVal = (isFinite(netYield)? netYield-6:0); warnBand=2; unit='%'; }
+        else if(it.name==='DSCR'){ dVal = (isFinite(dscr)? dscr-1.2:0); warnBand=0.2; unit='x'; }
+        else if(it.name==='Gross Yield'){ dVal = (isFinite(grossYield)? grossYield-8:0); warnBand=2; unit='%'; }
+        else if(it.name==='Cash Flow'){ dVal = (isFinite(monthlyCashFlow)? monthlyCashFlow:0); warnBand=200; unit='AED'; }
+        const chip=document.createElement('span'); chip.className='dchip';
+        let cls='bad', arrow='↓', text='';
+        if(it.name==='Cash Flow'){
+          if(dVal>=0){ cls='good'; arrow='↑'; text = (dVal>=0?'+':'−')+Math.abs(Math.round(dVal)).toLocaleString('en-US'); }
+          else if(dVal>=-warnBand){ cls='warn'; arrow='→'; text = (dVal>=0?'+':'−')+Math.abs(Math.round(dVal)).toLocaleString('en-US'); }
+          else { text = (dVal>=0?'+':'−')+Math.abs(Math.round(dVal)).toLocaleString('en-US'); }
+          chip.textContent = `${text} ${arrow}`;
+        }else{
+          if(dVal>=0){ cls='good'; arrow='↑'; }
+          else if(dVal>=-warnBand){ cls='warn'; arrow='→'; }
+          const fmt = (unit==='x')? ((v)=>(v>=0?'+':'')+Math.abs(v).toFixed(2)+'x') : ((v)=>(v>=0?'+':'')+Math.abs(v).toFixed(1)+'%');
+          chip.textContent = `${fmt(dVal)} ${arrow}`;
+        }
+        chip.className += ' '+cls;
+        sub.appendChild(chip);
+        li.appendChild(sub);
+        c2.appendChild(li);
+      });
+    }
+  }
+  // Grade action chips
+  const acts=document.getElementById('gradeActions');
+  if(acts){
+    acts.innerHTML='';
+    const shortAED=(v)=>{ const n=Math.abs(v); if(n>=1_000_000) return 'AED '+(v/1_000_000).toFixed(1)+'M'; if(n>=1_000) return 'AED '+(v/1_000).toFixed(1)+'k'; return 'AED '+Math.round(v).toLocaleString('en-US'); };
+    const addChip=(text, step)=>{ const b=document.createElement('button'); b.className='act'; b.textContent=text; b.addEventListener('click',()=>{ const calc=document.getElementById('calcStart'); if(typeof setStep==='function'){ setStep(step); } if(calc) calc.scrollIntoView({behavior:'smooth'}); }); acts.appendChild(b); };
+    if(isFinite(dscr) && dscr<1.2){
+      // Reuse rentNeeded and priceTarget computed above
+      if(typeof rentNeeded!=='undefined' && rentNeeded>rent){ addChip(`Rent +${shortAED(rentNeeded-rent)} → DSCR 1.2`,3); }
+      if(typeof priceTarget!=='undefined' && priceTarget>0 && priceTarget<pv){ addChip(`Price ≈ ${shortAED(priceTarget)}`,2); }
+      addChip('Increase down payment',2);
+    }
   }
 
+  // Thresholds toggle
+  const tbtn=document.getElementById('viewThresholds'), tbox=document.getElementById('gThresh');
+  if(tbtn && tbox && !tbtn._bound){
+    tbtn._bound=true;
+    tbtn.addEventListener('click',()=>{ tbox.style.display = tbox.style.display==='none' ? 'block':'none'; });
+  }
+
+  // Populate previews (radial, stacked, heatband, donut)
+  const setPct=(el, pct)=>{ if(el){ el.style.setProperty('--pct', String(Math.max(0, Math.min(100, pct)))); } };
+  // radial
+  const gr=document.getElementById('gradeRadial');
+  if(gr){
+    const pct = Math.round((g.score||0));
+    const gauge=gr.querySelector('.gr-gauge');
+    setPct(gauge, pct);
+    safeSetText('grLetter', (g.grade||'—')[0]||'—');
+    safeSetText('grScore', String(pct));
+    safeSetText('grVerdict', g.description||'—');
+    const chips=document.getElementById('grChips');
+    if(chips){
+      chips.innerHTML='';
+      const mk=(t)=>{ const b=document.createElement('span'); b.className='chip'; b.textContent=t; chips.appendChild(b); };
+      mk(`ROI ${isFinite(roi5)? roi5.toFixed(0)+'%':'—'}`);
+      mk(`Net ${isFinite(netYield)? netYield.toFixed(1)+'%':'—'}`);
+      mk(`DSCR ${isFinite(dscr)? dscr.toFixed(2)+'x':'—'}`);
+    }
+  }
+  // stacked
+  const gs=document.getElementById('gradeStacked');
+  if(gs){
+    safeSetText('gsLetter', (g.grade||'—')[0]||'—');
+    safeSetText('gsScore', String(Math.round(g.score||0)));
+    safeSetText('gsVerdict', g.description||'—');
+    // mini bars values
+    const setBar=(id,val,pct)=>{ const em=$(id); if(em){ em.style.width=Math.max(0,Math.min(100,pct))+'%'; } };
+    safeSetText('gsRoiVal', isFinite(roi5)? roi5.toFixed(0)+'%':'—'); setBar('gsRoiVal', roi5, (roi5/60)*100);
+    safeSetText('gsNetVal', isFinite(netYield)? netYield.toFixed(1)+'%':'—'); setBar('gsNetVal', netYield, (netYield/6)*100);
+    safeSetText('gsDscrVal', isFinite(dscr)? dscr.toFixed(2)+'x':'—'); setBar('gsDscrVal', dscr, (dscr/1.2)*100);
+  }
+  // heatband
+  const gh=document.getElementById('gradeHeat');
+  if(gh){
+    const dot=gh.querySelector('#ghDot'); if(dot){ dot.style.left = Math.min(100, Math.max(0, Math.round((g.score||0)))) + '%'; }
+    safeSetText('ghVerdict', g.description||'—');
+    const icon=$( 'ghIcon'); if(icon){ icon.textContent = g.grade && g.grade[0]<'C' ? '✓' : (g.grade && g.grade[0]==='C' ? '!' : '!'); }
+  }
+  // donut
+  const gd=document.getElementById('gradeDonut');
+  if(gd){
+    const chart=gd.querySelector('.gd-chart'); setPct(chart, Math.round((g.score||0)));
+    safeSetText('gdLetter', (g.grade||'—')[0]||'—');
+  }
   // KPI coloring + healthy tooltips
   const setState=(id,cls,healthyText)=>{
     const el=document.getElementById(id); if(!el) return;
@@ -151,9 +494,10 @@ function calculate(){
   };
   setState('kMonthly', monthlyCashFlow>0?'good':monthlyCashFlow>-200?'warn':'bad', 'Healthy: ≥ AED 0/month cash flow (buffer ≥ AED 500 preferred).');
   setState('kCoC', cashOnCash>=8?'good':cashOnCash>=5?'warn':'bad', 'Healthy: ≥ 8% CoC (Dubai typical 5–10%).');
-  setState('kROI', roi5>=60?'good':roi5>=40?'warn':'bad', 'Healthy: ≥ 60% total over 5 years (incl. appreciation).');
+  setState('kROI', roi5>=60?'good':roi5>=40?'warn':'bad', 'Assumptions: 3% appreciation, 0% rent growth, +2% expenses/yr. Healthy: ≥ 60% total over 5 years.');
   setState('kNet', netYield>=6?'good':netYield>=4?'warn':'bad', 'Healthy: ≥ 6% net yield (Dubai avg 3–6%).');
   setState('kGross', grossYield>=8?'good':grossYield>=6?'warn':'bad', 'Healthy: ≥ 8% gross yield (Dubai avg 4–8%).');
+  setState('kDSCR', dscr>=1.2?'good':dscr>=1.0?'warn':'bad', 'Healthy: ≥ 1.2 DSCR. Borderline: 1.0–1.2.');
 
   // AI text (simple)
   const recs=[];
@@ -162,16 +506,68 @@ function calculate(){
   if(netYield<4) recs.push({type:'warn',text:'Net yield below typical Dubai averages. Revisit price or fees.'});
   if(grossYield<6) recs.push({type:'warn',text:'Gross yield is modest; ensure rent assumptions are realistic.'});
   if(roi5>80) recs.push({type:'success',text:'Strong 5-year ROI; deal looks attractive under current assumptions.'});
+  // Rental recommendation action item
+  if(typeof window._recSuggestRent!=='undefined'){
+    const diff = (window._recSuggestRent||0) - rent;
+    if(diff>50){
+      recs.push({type:'info', text:`Current rent is below recommended — consider +AED ${Math.round(diff).toLocaleString('en-US')} to target ~${(window._recTargetPct||6)}% net yield.`});
+    }else if(diff<-50){
+      recs.push({type:'info', text:`Rent appears above recommended by ~AED ${Math.abs(Math.round(diff)).toLocaleString('en-US')}; evaluate competitiveness and assumptions.`});
+    }else{
+      recs.push({type:'success', text:'Current rent is near recommended for your target net yield.'});
+    }
+  }
+  // DSCR insights
+  if(isFinite(dscr)){
+    if(dscr<1.0) recs.push({type:'danger',text:`DSCR ${dscr.toFixed(2)}: debt service exceeds NOI. Improve rent or terms.`});
+    else if(dscr<1.2) recs.push({type:'warn',text:`DSCR ${dscr.toFixed(2)}: tight coverage. Target ≥ 1.20.`});
+    // Break-even rent to reach DSCR 1.2
+    const varPct=(maintRate+mgmtRate)/100;
+    const fixed=(baseFee + (annualInsurance/12) + (otherExpenses/12));
+    const target=1.2;
+    const effNeeded = (target*monthlyPayment + fixed) / Math.max(0.0001, (1 - varPct));
+    const grossNeeded = effNeeded / Math.max(0.0001, (1 - vacancyRate/100));
+    const rentNeeded = Math.max(0, Math.round(grossNeeded - addInc));
+    if(rentNeeded>rent) recs.push({type:'info',text:`Break-even rent for DSCR 1.2: AED ${rentNeeded.toLocaleString('en-US')} (current AED ${Math.round(rent).toLocaleString('en-US')}).`});
+    // Break-even price via loan amount inversion
+    const r = ratePct/100/12, n = years*12;
+    if(r>0 && n>0){
+      const pmtAllowed = Math.max(0, (effNeeded - (monthlyMaint+monthlyMgmt+fixed))); // NOI target = target*P&I -> already used
+      const pmtTarget = (noiMonthly)/target; // allowed payment for DSCR target
+      const loanTarget = (pmtTarget>0)? pmtTarget * (1 - Math.pow(1+r, -n)) / r : 0;
+      const priceTarget = (1 - (downPct/100))>0 ? loanTarget / (1 - (downPct/100)) : 0;
+      if(priceTarget>0 && pv>0){
+        const delta = Math.round(priceTarget - pv);
+        if(delta < 0) recs.push({type:'success',text:`At current inputs, DSCR 1.2 could be met around price AED ${(Math.round(priceTarget)).toLocaleString('en-US')} (−${Math.abs(delta).toLocaleString('en-US')} vs current).`});
+      }
+    }
+    // +0.5% rate sensitivity
+    const rate2 = ratePct + 0.5;
+    const r2 = rate2/100/12;
+    const pmt2 = (loanAmount>0 && n>0) ? (r2===0 ? loanAmount/n : loanAmount * r2 / (1 - Math.pow(1+r2, -n))) : 0;
+    const cf2 = effectiveIncome - monthlyOpex - pmt2;
+    const deltaCF = Math.round(cf2 - monthlyCashFlow);
+    recs.push({type: deltaCF<0?'warn':'info', text:`+0.50% rate → monthly cash flow ${deltaCF<0?'-':'+'} AED ${Math.abs(deltaCF).toLocaleString('en-US')}.`});
+  }
+  // Prioritize and limit to top 3 unique
+  const prio={danger:3,warn:2,info:1,success:0};
+  const seen=new Set();
+  const ranked = recs
+    .sort((a,b)=> (prio[b.type]??0)-(prio[a.type]??0))
+    .filter(r=>{ if(seen.has(r.text)) return false; seen.add(r.text); return true; })
+    .slice(0,3);
   const recEl=document.getElementById('recs');
   if(recEl){
     recEl.classList.remove('muted');
-    recEl.innerHTML = recs.map(r=>`<div class="rec ${r.type}">${r.text}</div>`).join('') || 'No special notes.';
+    recEl.classList.add('compact');
+    const icon=(t)=> t==='danger'?'!':t==='warn'?'!':t==='success'?'✓':'i';
+    recEl.innerHTML = ranked.map(r=>`<div class="rec ${r.type}"><span class="ico">${icon(r.type)}</span><span class="txt">${r.text}</span></div>`).join('') || 'No special notes.';
   }
 }
 
 window.addEventListener('DOMContentLoaded', ()=>{
   // Wizard navigation
-  let step=1; const maxStep=5;
+  let step=1; const maxStep=4;
   const setStep=(n)=>{
     step=Math.max(1, Math.min(maxStep, n));
     document.querySelectorAll('.wstep').forEach(s=>s.classList.remove('show'));
@@ -183,15 +579,54 @@ window.addEventListener('DOMContentLoaded', ()=>{
     // segmented bar updates
     const segs=document.querySelectorAll('#segBar .seg');
     segs.forEach((s,i)=> s.classList.toggle('active', i<step));
-    const sc=document.getElementById('stepCounter'); if(sc) sc.textContent = `Step ${step}/5`;
+    const sc=document.getElementById('stepCounter'); if(sc) sc.textContent = `Step ${step}/4`;
   };
+  // Make progress segments clickable
+  document.querySelectorAll('#segBar .seg').forEach((s,i)=>{
+    s.addEventListener('click', ()=> setStep(i+1));
+    const lbl = s.querySelector('.seg-label');
+    if(lbl){
+      lbl.addEventListener('click',(e)=>{ e.stopPropagation(); setStep(i+1); });
+    }
+  });
   const prev=$("prevStep"), next=$("nextStep");
   if(prev) prev.addEventListener('click', ()=> setStep(step-1));
   if(next) next.addEventListener('click', ()=> setStep(step+1));
   setStep(1);
 
+  // "What are the 4 steps?" link → scroll & pulse progress
+  const stepsLink=document.querySelector('.promo-steps-link');
+  if(stepsLink){
+    stepsLink.addEventListener('click', (e)=>{
+      const href = stepsLink.getAttribute('href') || '';
+      // Only intercept if it's an in-page anchor; otherwise allow navigation
+      if(href.startsWith('#')){
+        e.preventDefault();
+        const target=document.getElementById(href.replace('#',''));
+        if(target){ target.scrollIntoView({behavior:'smooth', block:'start'}); }
+        const bar=document.getElementById('segBar');
+        if(bar){
+          bar.classList.add('pulse');
+          setTimeout(()=> bar.classList.remove('pulse'), 2600);
+        }
+      }
+    });
+  }
+
+  // Edit links in Input Summary → jump to step
+  document.querySelectorAll('.goto-step').forEach(a=>{
+    a.addEventListener('click',(e)=>{
+      e.preventDefault();
+      const step = parseInt(a.getAttribute('data-step')||'1',10);
+      const bar=document.getElementById('segBar');
+      if(typeof setStep==='function'){ setStep(step); }
+      else if(typeof window._setStep==='function'){ window._setStep(step); }
+      const calc=document.getElementById('calcStart'); if(calc) calc.scrollIntoView({behavior:'smooth', block:'start'});
+      if(bar){ bar.classList.add('pulse'); setTimeout(()=>bar.classList.remove('pulse'), 1600); }
+    });
+  });
   // Recalc on input changes
-  ['propertyValue','downPayment','agentFee','loanTerm','interestRate','dldFeeEnabled','additionalCosts','monthlyRent','additionalIncome','vacancyRate','maintenanceRate','managementFee','baseFee','annualInsurance','otherExpenses','rentGrowth','propertyAppreciation','expenseInflation','exitCapRate','sellingCosts','bedrooms','bathrooms','size','statusToggle','projectName']
+  ['propertyValue','propertyValueNum','downPayment','downPaymentNum','agentFee','loanTerm','interestRate','interestRateNum','dldFeeEnabled','additionalCosts','monthlyRent','monthlyRentNum','additionalIncome','vacancyRate','vacancyRateNum','maintenanceRate','maintenanceRateNum','managementFee','managementFeeNum','baseFee','annualInsurance','otherExpenses','bedrooms','bathrooms','size','statusToggle','projectName']
   .forEach(id=>{ const el=$(id); if(el){ el.addEventListener('input', calculate); el.addEventListener('change', calculate); }});
 
   // Extra safety: recalc on any input/select change throughout the wizard
@@ -225,11 +660,79 @@ window.addEventListener('DOMContentLoaded', ()=>{
         doc.setFillColor(31,41,55); doc.rect(0,0,pageWidth,25,'F');
         doc.setTextColor(255,255,255); doc.setFontSize(16); doc.setFont('helvetica','bold');
         doc.text('Smart Property Analyzer',20,15);
-        doc.setFontSize(10); doc.setFont('helvetica','normal'); doc.text('Dubai Real Estate Investment Analysis',20,20);
+        doc.setFontSize(10); doc.setFont('helvetica','normal'); doc.text('Dubai Buy-to-Let Analysis',20,20);
+        const ts = new Date().toLocaleString(); doc.text(ts, pageWidth-20, 20, { align:'right' });
         doc.setTextColor(0,0,0);
 
-        // Collect user inputs
+        // Compute metrics locally for PDF
         const getVal = (id)=>{ const el=document.getElementById(id); return el? el.value: '' };
+        const getNum=(id)=>{ const v=parseFloat(getVal(id)); return isFinite(v)? v:0 };
+        const pv = getNum('propertyValue');
+        const downPct = getNum('downPayment');
+        const agentFeePct = getNum('agentFee');
+        const years = getNum('loanTerm');
+        const ratePct = getNum('interestRate');
+        const dldFeeEnabled = (document.getElementById('dldFeeEnabled')||{}).checked;
+        const additionalCosts = getNum('additionalCosts');
+        const rent = getNum('monthlyRent');
+        const addInc = getNum('additionalIncome');
+        const vacancyRate = getNum('vacancyRate');
+        const maintRate = getNum('maintenanceRate');
+        const mgmtRate = getNum('managementFee');
+        const baseFee = getNum('baseFee');
+        const annualInsurance = getNum('annualInsurance');
+        const otherExpenses = getNum('otherExpenses');
+        const downPayment = pv * (downPct/100);
+        const agentFee = pv * (agentFeePct/100);
+        const dldFee = dldFeeEnabled ? pv * 0.04 : 0;
+        const loanAmount = Math.max(0, pv - downPayment);
+        const totalInitial = downPayment + agentFee + dldFee + additionalCosts;
+        const r = ratePct/100/12, n = years*12;
+        const monthlyPayment = (loanAmount>0 && n>0) ? (r===0 ? loanAmount/n : loanAmount * r / (1 - Math.pow(1+r, -n))) : 0;
+        const grossMonthlyIncome = rent + addInc;
+        const effectiveIncome = grossMonthlyIncome * (1 - vacancyRate/100);
+        const monthlyMaint = effectiveIncome * (maintRate/100);
+        const monthlyMgmt  = effectiveIncome * (mgmtRate/100);
+        const monthlyOpex  = monthlyMaint + monthlyMgmt + baseFee + (annualInsurance/12) + (otherExpenses/12);
+        const monthlyCashFlow = effectiveIncome - monthlyOpex - monthlyPayment;
+        const annualCashFlow = monthlyCashFlow * 12;
+        const annualRentGross = (rent + addInc) * 12;
+        const annualEffective = effectiveIncome * 12;
+        const annualOpex = monthlyMaint*12 + monthlyMgmt*12 + baseFee*12 + annualInsurance + otherExpenses;
+        const NOI = annualEffective - annualOpex;
+        const grossYield = pv>0 ? (annualRentGross/pv)*100 : NaN;
+        const netYield   = pv>0 ? (NOI/pv)*100 : NaN;
+        const noiMonthly = effectiveIncome - (monthlyMaint + monthlyMgmt + baseFee + (annualInsurance/12) + (otherExpenses/12));
+        const dscr = monthlyPayment>0 ? (noiMonthly / monthlyPayment) : NaN;
+        // 5y ROI
+        const remaining5 = (function(){
+          if(loanAmount<=0 || n<=0) return 0;
+          if(r===0) return Math.max(0, loanAmount*(1-60/n));
+          const pmt = monthlyPayment;
+          const bal = loanAmount * Math.pow(1+r, 60) - pmt * (Math.pow(1+r, 60)-1)/r;
+  return Math.max(0, bal);
+        })();
+        const principalPaid5 = Math.max(0, loanAmount - remaining5);
+        const appreciation = 3;
+        const futureValue = pv * Math.pow(1 + appreciation/100, 5);
+        const appreciationGain = Math.max(0, futureValue - pv);
+        const totalGain5 = annualCashFlow*5 + principalPaid5 + appreciationGain;
+        const roi5 = downPayment>0 ? (totalGain5 / downPayment) * 100 : NaN;
+        const netCashOutlay5 = totalInitial + (monthlyOpex + monthlyPayment - effectiveIncome) * 60;
+        // DSCR targets
+        const varPct=(maintRate+mgmtRate)/100;
+        const fixed=(baseFee + (annualInsurance/12) + (otherExpenses/12));
+        const target=1.2;
+        const effNeeded = (target*monthlyPayment + fixed) / Math.max(0.0001, (1 - varPct));
+        const grossNeeded = effNeeded / Math.max(0.0001, (1 - vacancyRate/100));
+        const rentNeeded = Math.max(0, Math.round(grossNeeded - addInc));
+        let priceTarget=0;
+        if(r>0 && n>0){
+          const pmtTarget = (noiMonthly)/target;
+          const loanTarget = (pmtTarget>0)? pmtTarget * (1 - Math.pow(1+r, -n)) / r : 0;
+          priceTarget = (1 - (downPct/100))>0 ? loanTarget / (1 - (downPct/100)) : 0;
+        }
+
         const propertyData = {
           projectName: getVal('projectName'),
           propertyType: getVal('propertyType'),
@@ -251,11 +754,13 @@ window.addEventListener('DOMContentLoaded', ()=>{
 
         // Grade box
         doc.setFont('helvetica','bold'); doc.setFontSize(14); doc.text('INVESTMENT GRADE',20,y); y+=10;
-        doc.setFillColor(16,185,129); doc.roundedRect(20,y,70,28,4,4,'F');
-        doc.setTextColor(255,255,255); doc.setFontSize(22); doc.text(document.getElementById('gradeLetter')?.textContent||'—',48,y+18);
-        doc.setTextColor(0,0,0); doc.setFontSize(12); doc.text(`Score: ${document.getElementById('gradeScore')?.textContent||'—'}/100`,100,y+10);
-        doc.setFontSize(10); doc.text(document.getElementById('gradeDesc')?.textContent||'',100,y+16);
-        y+=36;
+        const g = computeGrade(monthlyCashFlow, netYield, grossYield, roi5, dscr);
+        const gc = g.grade[0]==='A'?[16,185,129]: g.grade[0]==='B'?[34,197,94]: g.grade[0]==='C'?[245,158,11]:[239,68,68];
+        doc.setDrawColor(232,236,244); doc.setFillColor(245,247,255); doc.roundedRect(20,y,22,22,3,3,'F');
+        doc.setTextColor(gc[0],gc[1],gc[2]); doc.setFontSize(16); doc.setFont('helvetica','bold'); doc.text((g.grade||'—')[0],26,y+15);
+        doc.setTextColor(0,0,0); doc.setFontSize(12); doc.text(`Score: ${Math.round(g.score)}/100`,50,y+8);
+        doc.setFontSize(10); doc.text(g.description||'',50,y+16);
+        y+=28;
 
         // Mini chips row (Price, Equity, Loan, Monthly P&I)
         const chipsRowY = y;
@@ -275,7 +780,7 @@ window.addEventListener('DOMContentLoaded', ()=>{
         makeChip('Monthly P&I', formatCurrencyAED(monthlyPayment));
         y = chipsRowY + 14;
 
-        // Metrics table
+        // Key metrics
         const auto = (doc).autoTable; // plugin
         if(auto){
           doc.setFont('helvetica','bold'); doc.setFontSize(12); doc.text('KEY METRICS',20,y); y+=6;
@@ -283,10 +788,11 @@ window.addEventListener('DOMContentLoaded', ()=>{
             startY:y,
             head:[['Metric','Value']],
             body:[
-              ['Cash on Cash ROI', document.getElementById('cashOnCash')?.textContent||'-'],
-              ['ROI (5y)', document.getElementById('totalROI')?.textContent||'-'],
-              ['Net Yield', document.getElementById('netYield')?.textContent||'-'],
-              ['Gross Yield', document.getElementById('grossYield')?.textContent||'-']
+              ['DSCR', isFinite(dscr)? dscr.toFixed(2)+'x':'-'],
+              ['Net Yield', isFinite(netYield)? netYield.toFixed(1)+'%':'-'],
+              ['Gross Yield', isFinite(grossYield)? grossYield.toFixed(1)+'%':'-'],
+              ['Cash Flow', (isFinite(monthlyCashFlow)? Math.round(monthlyCashFlow).toLocaleString('en-US'):'-')+' /mo'],
+              ['ROI (5y)', isFinite(roi5)? Math.round(roi5)+'%':'-']
             ],
             theme:'grid', headStyles:{ fillColor:[59,130,246], textColor:255 }, styles:{ fontSize:9 }
           });
@@ -369,14 +875,121 @@ window.addEventListener('DOMContentLoaded', ()=>{
   const fbBtn=document.getElementById('openFeedback');
   if(fbBtn){
     fbBtn.addEventListener('click',()=>{
-      // TODO: vervangen door Google Forms URL zodra beschikbaar
-      const prefillProject = encodeURIComponent(document.getElementById('projectName')?.value||'');
-      const url = `https://forms.gle/`;
-      alert('Beta feedback opent binnenkort als Google Form. Voor nu: maak alvast een Google Form en plak de URL in script.js.');
-      window.open(url,'_blank');
+      // 1) probeer uit data-attribute
+      let url = fbBtn.getAttribute('data-url') || '';
+      // 2) probeer uit localStorage
+      if(!url){ url = localStorage.getItem('feedbackFormUrl') || ''; }
+      // 3) als nog leeg: vraag om Google Forms URL (eenmalig)
+      if(!url){
+        const input = prompt('Plak hier je Google Forms link voor beta feedback:');
+        if(input && /^https?:\/\//i.test(input)){
+          localStorage.setItem('feedbackFormUrl', input);
+          url = input;
+        } else {
+          alert('Geen geldige link opgegeven.');
+          return;
+        }
+      }
+      // Optioneel: prefill projectnaam indien Forms dat ondersteunt (qs blijft generiek)
+      try{
+        window.open(url, '_blank');
+      }catch(e){
+        location.href = url;
+      }
     });
   }
   
+
+  // Shareable link: encode current inputs into URL
+  const encodeState = (obj)=> btoa(unescape(encodeURIComponent(JSON.stringify(obj))));
+  const collectState = ()=>{
+    const ids=['propertyValue','downPayment','agentFee','loanTerm','interestRate','additionalCosts','monthlyRent','additionalIncome','vacancyRate','maintenanceRate','managementFee','baseFee','annualInsurance','otherExpenses','propertyType','bedrooms','bathrooms','size','projectName','handover','preHandoverPct'];
+    const o={};
+    ids.forEach(id=>{ const el=document.getElementById(id); if(el){ o[id]= (el.type==='checkbox')? el.checked : el.value; }});
+    const st=document.getElementById('status'); if(st) o['status']=st.value;
+    const dld=document.getElementById('dldFeeEnabled'); if(dld) o['dldFeeEnabled']=!!dld.checked;
+    return o;
+  };
+  const shareBtn=document.getElementById('shareBtn');
+  if(shareBtn){
+    shareBtn.addEventListener('click', async ()=>{
+      const q=encodeState(collectState());
+      const url = `${location.origin}${location.pathname}?q=${q}`;
+      try{
+        await navigator.clipboard.writeText(url);
+        const prev=shareBtn.textContent; shareBtn.textContent='Link copied!'; setTimeout(()=>shareBtn.textContent=prev, 1500);
+      }catch(e){
+        prompt('Copy this link:', url);
+      }
+    });
+  }
+  const shareWA=document.getElementById('shareWA');
+  if(shareWA){
+    shareWA.addEventListener('click', ()=>{
+      closeShareMenu();
+      const q=encodeState(collectState());
+      const url = `${location.origin}${location.pathname}?q=${q}`;
+      const msg = `Smart Property Analyzer - Dubai%0AProperty analysis link:%0A${encodeURIComponent(url)}`;
+      const wa = `https://wa.me/?text=${msg}`;
+      window.open(wa,'_blank');
+    });
+  }
+  const shareEmail=document.getElementById('shareEmail');
+  if(shareEmail){
+    shareEmail.addEventListener('click', ()=>{
+      closeShareMenu();
+      const q=encodeState(collectState());
+      const url = `${location.origin}${location.pathname}?q=${q}`;
+      const subject = encodeURIComponent('Dubai Property Analysis');
+      const body = encodeURIComponent(`Hi,\n\nHere is the analysis link:\n${url}\n\nGenerated with Smart Property Analyzer - Dubai.`);
+      const mailto = `mailto:?subject=${subject}&body=${body}`;
+      window.location.href = mailto;
+    });
+  }
+  // Dropdown toggle and outside click
+  const shareToggle=document.getElementById('shareToggle');
+  const shareMenu=document.getElementById('shareMenu');
+  const shareDD=document.getElementById('shareDD');
+  function closeShareMenu(){ if(shareDD){ shareDD.classList.remove('open'); if(shareToggle){ shareToggle.setAttribute('aria-expanded','false'); } if(shareMenu){ shareMenu.setAttribute('aria-hidden','true'); } } }
+  if(shareToggle && shareDD){
+    shareToggle.addEventListener('click', (e)=>{
+      e.stopPropagation();
+      const isOpen = shareDD.classList.toggle('open');
+      shareToggle.setAttribute('aria-expanded', String(isOpen));
+      if(shareMenu) shareMenu.setAttribute('aria-hidden', String(!isOpen));
+    });
+    document.addEventListener('click', (e)=>{
+      if(!shareDD.contains(e.target)){ closeShareMenu(); }
+    });
+  }
+
+  // If URL contains ?q=..., apply inputs and calculate
+  const params=new URLSearchParams(location.search);
+  const q=params.get('q');
+  if(q){
+    try{
+      const decode=(s)=> JSON.parse(decodeURIComponent(escape(atob(s))));
+      const data=decode(q);
+      Object.entries(data).forEach(([k,v])=>{
+        const el=document.getElementById(k);
+        if(!el) return;
+        if(el.type==='checkbox') el.checked=!!v; else el.value = v;
+        try{ el.dispatchEvent(new Event('input',{bubbles:true})); }catch(_){}
+        try{ el.dispatchEvent(new Event('change',{bubbles:true})); }catch(_){}
+      });
+      // apply status toggle visual
+      const stVal = data['status'];
+      const seg = document.getElementById('statusSeg');
+      if(seg && (stVal==='offplan' || stVal==='ready')){
+        const btn = seg.querySelector(`.seg-btn[data-status="${stVal}"]`);
+        if(btn){ btn.click(); }
+      }
+      // recalc after applying
+      setTimeout(()=>{ try{ calculate(); }catch(_){} }, 50);
+    }catch(e){
+      console.warn('Failed to apply shared state', e);
+    }
+  }
 
   // quick inline feedback
   const setFb=(msg)=>{const el=$("fbMsg"); if(el) el.textContent=msg};
@@ -388,25 +1001,62 @@ window.addEventListener('DOMContentLoaded', ()=>{
   // show live values for sliders
   const bindVal=(id,label,fmt=(v)=>v)=>{const el=$(id); const out=$(label); if(el&&out){ const fn=()=> out.textContent=fmt(el.value); el.addEventListener('input',fn); fn(); }}
   bindVal('propertyValue','priceVal',(v)=>'AED '+parseInt(v).toLocaleString('en-US'));
+  // sync helpers between slider and number for key fields
+  const syncPair=(sliderId, numberId, formatter)=>{
+    const s=$(sliderId), n=$(numberId); if(!s||!n) return;
+    const toNumber=()=>{ n.value = s.value; if(formatter) formatter(s.value); calculate(); };
+    const toSlider=()=>{ s.value = n.value; if(formatter) formatter(n.value); calculate(); };
+    s.addEventListener('input', toNumber);
+    n.addEventListener('input', toSlider);
+    toNumber();
+  };
+  syncPair('propertyValue','propertyValueNum', (v)=>{ const out=$('priceVal'); if(out) out.textContent='AED '+parseInt(v).toLocaleString('en-US'); });
   bindVal('bedrooms','bedroomsVal');
   bindVal('bathrooms','bathroomsVal');
   bindVal('size','sizeVal',(v)=>v+' ft²');
+  bindVal('preHandoverPct','preHandoverPctVal',(v)=>v+'%');
   bindVal('agentFee','agentFeeVal',(v)=>v+'%');
   bindVal('loanTerm','loanTermVal',(v)=>v+' years');
-  bindVal('interestRate','interestRateVal',(v)=>parseFloat(v).toFixed(2)+'%');
-  bindVal('additionalCosts','additionalCostsVal',(v)=>'AED '+parseInt(v).toLocaleString('en-US'));
-  bindVal('monthlyRent','monthlyRentVal',(v)=>'AED '+parseInt(v).toLocaleString('en-US'));
+  // sync interest rate slider <-> number and value hint
+  syncPair('interestRate','interestRateNum', (v)=>{ const out=$('interestRateVal'); if(out) out.textContent=parseFloat(v).toFixed(2)+'%'; });
+  // sync down payment slider <-> number and update hint
+  syncPair('downPayment','downPaymentNum', (v)=>{ const out=$('downPaymentVal'); if(out) out.textContent = parseFloat(v).toFixed(0)+'%'; });
+  bindVal('downPayment','downPaymentVal',(v)=>parseFloat(v).toFixed(0)+'%');
+  document.querySelectorAll('.step-btn').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      const targetId=btn.getAttribute('data-target'); const delta=parseFloat(btn.getAttribute('data-delta')||'0');
+      const s=$(targetId); const n=$(targetId+'Num');
+      if(!s) return;
+      const min=parseFloat(s.min||0), max=parseFloat(s.max||1000000);
+      const next = Math.min(max, Math.max(min, parseFloat(s.value||0)+delta));
+      s.value = String(next);
+      if(n) n.value = String(next);
+      if(targetId==='interestRate'){ const out=$('interestRateVal'); if(out) out.textContent=parseFloat(next).toFixed(2)+'%'; }
+      if(targetId==='bedrooms'){ const out=$('bedroomsVal'); if(out) out.textContent=String(next); }
+      if(targetId==='bathrooms'){ const out=$('bathroomsVal'); if(out) out.textContent=String(next); }
+      calculate();
+    });
+  });
+  bindVal('additionalCosts','additionalCostsVal',(v)=>'AED '+parseInt(v||0).toLocaleString('en-US'));
+  // sync monthly rent slider <-> number, with chips
+  syncPair('monthlyRent','monthlyRentNum', (v)=>{ const out=$('monthlyRentVal'); if(out) out.textContent='AED '+parseInt(v).toLocaleString('en-US'); });
+  const chipSet=(containerId, targetId)=>{
+    const box=document.getElementById(containerId); const s=$(targetId), n=$(targetId+'Num'); if(!box||!s||!n) return;
+    box.querySelectorAll('.chip').forEach(c=>{
+      c.addEventListener('click', ()=>{ const v=c.getAttribute('data-val'); if(!v) return; s.value=v; n.value=v; calculate(); });
+    });
+  };
+  chipSet('priceChips','propertyValue');
+  chipSet('rentChips','monthlyRent');
   bindVal('additionalIncome','additionalIncomeVal',(v)=>'AED '+parseInt(v).toLocaleString('en-US'));
-  bindVal('maintenanceRate','maintenanceRateVal',(v)=>v+'%');
-  bindVal('managementFee','managementFeeVal',(v)=>v+'%');
+  // vacancy, maintenance, management sync number <-> slider
+  syncPair('vacancyRate','vacancyRateNum', (v)=>{ const out=$('vacancyRateVal'); if(out) out.textContent=v+'%'; });
+  syncPair('maintenanceRate','maintenanceRateNum', (v)=>{ const out=$('maintenanceRateVal'); if(out) out.textContent=v+'%'; });
+  syncPair('managementFee','managementFeeNum', (v)=>{ const out=$('managementFeeVal'); if(out) out.textContent=v+'%'; });
   bindVal('baseFee','baseFeeVal',(v)=>'AED '+parseInt(v).toLocaleString('en-US'));
   bindVal('annualInsurance','annualInsuranceVal',(v)=>'AED '+parseInt(v).toLocaleString('en-US'));
   bindVal('otherExpenses','otherExpensesVal',(v)=>'AED '+parseInt(v).toLocaleString('en-US'));
-  bindVal('rentGrowth','rentGrowthVal',(v)=>v+'%');
-  bindVal('propertyAppreciation','propertyAppreciationVal',(v)=>v+'%');
-  bindVal('expenseInflation','expenseInflationVal',(v)=>v+'%');
-  bindVal('exitCapRate','exitCapRateVal',(v)=>v+'%');
-  bindVal('sellingCosts','sellingCostsVal',(v)=>v+'%');
+  // Growth bindings removed in Basic; fixed defaults are applied in calculations
 
   // segmented toggle behavior
   const seg=$("statusSeg");
@@ -416,8 +1066,11 @@ window.addEventListener('DOMContentLoaded', ()=>{
         seg.querySelectorAll('.seg-btn').forEach(b=>b.classList.remove('active'));
         btn.classList.add('active');
         const hidden=$("status"); if(hidden) hidden.value = btn.dataset.status;
+        const op=$("offplanFields"); if(op) op.style.display = (hidden && hidden.value==='offplan') ? 'block':'none';
         calculate();
       });
     });
+    // set initial visibility
+    const hidden=$("status"); const op=$("offplanFields"); if(op && hidden){ op.style.display = hidden.value==='offplan' ? 'block':'none'; }
   }
 });
