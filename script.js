@@ -493,6 +493,22 @@ function calculate(){
       drivers.textContent = `Top drivers: ROI ${roiStr}, IRR ${irrStr}, DSCR ${dscrStr}, Net ${netStr}`;
     }
   }
+  // Inline validation warnings (soft)
+  (function(){
+    const msgs=[];
+    if(downPct>100) msgs.push('Down payment > 100%');
+    if(isFinite(dscr) && dscr<0.8) msgs.push(`Low DSCR ${dscr.toFixed(2)} (target ≥ 1.20)`);
+    const bar=document.getElementById('limitNote');
+    if(bar){
+      if(msgs.length){
+        bar.style.display='block';
+        bar.textContent = 'Check inputs: ' + msgs.join(' • ');
+      }else{
+        bar.style.display='none';
+        bar.textContent='';
+      }
+    }
+  })();
   // Build current deal object for comparison save
   (function(){
     const name = (document.getElementById('projectName')||{}).value || 'Deal';
@@ -938,7 +954,144 @@ window.addEventListener('DOMContentLoaded', ()=>{
   // Professional PDF export using jsPDF + autotable
   const proBtn=document.getElementById('downloadBtn');
   if(proBtn){
-    proBtn.addEventListener('click', ()=>{
+    proBtn.addEventListener('click', async ()=>{
+      // Try server-side pdf-lib generator first. On failure, fall back to legacy jsPDF.
+      try {
+        // Ensure latest calculations
+        try { calculate(); } catch(_e){}
+        // Recompute inputs similarly to legacy block
+        const getVal = (id)=>{ const el=document.getElementById(id); return el? el.value: '' };
+        const getNum=(id)=>{ const v=parseFloat(getVal(id)); return isFinite(v)? v:0 };
+        const pv = getNum('propertyValue');
+        const downPct = getNum('downPayment');
+        const agentFeePct = getNum('agentFee');
+        const years = getNum('loanTerm');
+        const ratePct = getNum('interestRate');
+        const dldFeeEnabled = (document.getElementById('dldFeeEnabled')||{}).checked;
+        const additionalCosts = getNum('additionalCosts');
+        const rent = getNum('monthlyRent');
+        const addInc = getNum('additionalIncome');
+        const vacancyRate = getNum('vacancyRate');
+        const maintRate = getNum('maintenanceRate');
+        const mgmtRate  = getNum('managementFee');
+        const baseFee   = getNum('baseFee');
+        const annualInsurance = getNum('annualInsurance');
+        const otherExpenses  = getNum('otherExpenses');
+        const downPayment = pv * (downPct/100);
+        const agentFee = pv * (agentFeePct/100);
+        const dldFee = dldFeeEnabled ? pv * 0.04 : 0;
+        const loanAmount = Math.max(0, pv - downPayment);
+        const r = ratePct/100/12, n=years*12;
+        const monthlyPayment = (loanAmount>0 && n>0) ? (r===0 ? loanAmount/n : loanAmount * r / (1 - Math.pow(1+r, -n))) : 0;
+        const totalInitial = downPayment + agentFee + dldFee + additionalCosts;
+        const grossMonthlyIncome = rent + addInc;
+        const effectiveIncome = grossMonthlyIncome * (1 - vacancyRate/100);
+        const monthlyMaint = effectiveIncome * (maintRate/100);
+        const monthlyMgmt  = effectiveIncome * (mgmtRate/100);
+        const monthlyOpex  = monthlyMaint + monthlyMgmt + baseFee + (annualInsurance/12) + (otherExpenses/12);
+        const monthlyCF    = effectiveIncome - monthlyOpex - monthlyPayment;
+        const annualRentGross = (rent + addInc) * 12;
+        const annualEffective = effectiveIncome * 12;
+        const annualOpex = monthlyMaint*12 + monthlyMgmt*12 + baseFee*12 + annualInsurance + otherExpenses;
+        const NOI = annualEffective - annualOpex;
+        const grossYield = pv>0 ? (annualRentGross/pv)*100 : undefined;
+        const netYield   = pv>0 ? (NOI/pv)*100 : undefined;
+        const noiMonthly = effectiveIncome - (monthlyMaint + monthlyMgmt + baseFee + (annualInsurance/12) + (otherExpenses/12));
+        const dscr = monthlyPayment>0 ? (noiMonthly / monthlyPayment) : undefined;
+        const remaining5 = (function(){
+          if(loanAmount<=0 || n<=0) return 0;
+          if(r===0) return Math.max(0, loanAmount*(1-60/n));
+          const pmt = monthlyPayment;
+          const bal = loanAmount * Math.pow(1+r, 60) - pmt * (Math.pow(1+r, 60)-1)/r;
+          return Math.max(0, bal);
+        })();
+        const principalPaid5 = Math.max(0, loanAmount - remaining5);
+        const appreciation = 3;
+        const futureValue = pv * Math.pow(1 + appreciation/100, 5);
+        const appreciationGain = Math.max(0, futureValue - pv);
+        const totalGain5 = (monthlyCF*12)*5 + principalPaid5 + appreciationGain;
+        const roi5 = downPayment>0 ? (totalGain5 / downPayment) * 100 : undefined;
+        const compareList = (function(){
+          try {
+            const s = localStorage.getItem('spa_deal_compare');
+            if(!s) return undefined;
+            const arr = JSON.parse(s);
+            if(!Array.isArray(arr)) return undefined;
+            return arr.map((d)=>({
+              name: d?.name,
+              gradeLetter: d?.grade,
+              score0100: typeof d?.gradeScore==='number'? d.gradeScore: undefined,
+              priceAed: d?.price,
+              cashFlowMonthlyAed: d?.cashFlow,
+              dscr: d?.dscr,
+              netYieldPct: d?.netYield,
+              irr5yPct: d?.irr5
+            }));
+          } catch { return undefined; }
+        })();
+        const payload = {
+          timestamp: new Date().toISOString(),
+          property: {
+            title: (document.getElementById('projectName')?.value || ''),
+            type: document.getElementById('propertyType')?.value || '',
+            beds: parseFloat(document.getElementById('bedrooms')?.value || '0') || undefined,
+            baths: parseFloat(document.getElementById('bathrooms')?.value || '0') || undefined,
+            sizeSqft: parseFloat(document.getElementById('size')?.value || '0') || undefined,
+            status: (document.getElementById('status')?.value || ''),
+            community: (document.getElementById('community')?.value || ''),
+          },
+          pricing: { propertyValueAed: pv || undefined },
+          financing: {
+            downPaymentPct: downPct || undefined,
+            equityAed: totalInitial || undefined,
+            loanAed: loanAmount || undefined,
+            loanTermYears: years || undefined,
+            interestRatePct: ratePct || undefined,
+            monthlyPIAed: monthlyPayment || undefined
+          },
+          transactionCosts: {
+            agentFeePct: agentFeePct || undefined,
+            dldFeePct: dldFeeEnabled ? 4 : undefined,
+            additionalCostsAed: additionalCosts || undefined,
+            totalInvestmentAed: totalInitial || undefined
+          },
+          income: { monthlyRentAed: rent || undefined, additionalIncomeAed: addInc || undefined },
+          opexMonthly: {
+            managementFeeAed: monthlyMgmt || undefined,
+            maintenanceAed: monthlyMaint || undefined,
+            insuranceOtherAed: (annualInsurance/12 + otherExpenses/12) || undefined
+          },
+          assumptions: { vacancyRatePct: vacancyRate || undefined },
+          results: {
+            dscr, netYieldPct: netYield, grossYieldPct: grossYield,
+            netCashFlowMonthlyAed: monthlyCF, roi5yPct: roi5,
+            irr5yPct: (typeof window._irr5 === 'number' ? window._irr5 : undefined),
+            gradeLetter: window._lastGradeInfo?.grade,
+            score0100: Math.round(window._lastGradeInfo?.score || 0)
+          },
+          comparisons: compareList
+        };
+
+        const res = await fetch('/api/generate-pdf', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+        if (!res.ok) throw new Error(`PDF API ${res.status}`);
+        const buf = await res.arrayBuffer();
+        const blob = new Blob([buf], { type: 'application/pdf' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `investor-memo-${Date.now()}.pdf`;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        URL.revokeObjectURL(url);
+        return; // success, skip legacy fallback
+      } catch (e) {
+        console.warn('Server PDF failed, fallback to legacy jsPDF...', e);
+      }
       try{
         const { jsPDF } = window.jspdf || {};
         if(!jsPDF || !window.jspdf || !window.jspdf.jsPDF){
@@ -1543,10 +1696,10 @@ window.addEventListener('DOMContentLoaded', ()=>{
   chipSet('priceChips','propertyValue');
   chipSet('rentChips','monthlyRent');
   bindVal('additionalIncome','additionalIncomeVal',(v)=>'AED '+parseInt(v).toLocaleString('en-US'));
-  // vacancy, maintenance, management sync number <-> slider
-  syncPair('vacancyRate','vacancyRateNum', (v)=>{ const out=$('vacancyRateVal'); if(out) out.textContent=v+'%'; });
-  syncPair('maintenanceRate','maintenanceRateNum', (v)=>{ const out=$('maintenanceRateVal'); if(out) out.textContent=v+'%'; });
-  syncPair('managementFee','managementFeeNum', (v)=>{ const out=$('managementFeeVal'); if(out) out.textContent=v+'%'; });
+  // vacancy, maintenance, management sync number <-> slider (with microcopy)
+  syncPair('vacancyRate','vacancyRateNum', (v)=>{ const out=$('vacancyRateVal'); if(out) out.textContent=`${parseFloat(v).toFixed(0)}% • typical 2–8%`; });
+  syncPair('maintenanceRate','maintenanceRateNum', (v)=>{ const out=$('maintenanceRateVal'); if(out) out.textContent=`${parseFloat(v).toFixed(0)}% • typical 5–10%`; });
+  syncPair('managementFee','managementFeeNum', (v)=>{ const out=$('managementFeeVal'); if(out) out.textContent=`${parseFloat(v).toFixed(0)}% • typical 5–8%`; });
   bindVal('baseFee','baseFeeVal',(v)=>'AED '+parseInt(v).toLocaleString('en-US'));
   bindVal('annualInsurance','annualInsuranceVal',(v)=>'AED '+parseInt(v).toLocaleString('en-US'));
   bindVal('otherExpenses','otherExpensesVal',(v)=>'AED '+parseInt(v).toLocaleString('en-US'));
