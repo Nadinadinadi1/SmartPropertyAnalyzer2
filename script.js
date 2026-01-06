@@ -14,24 +14,106 @@ function remainingBalance(principal, annualRatePct, years, monthsElapsed){
   return Math.max(0, bal);
 }
 
-function computeGrade(monthlyCashFlow, netYield, grossYield, roi, dscr){
-  // Dubai-weighted: ROI 30, Net 30, DSCR 20, Gross 10, CashFlow 10
+function computeGrade(monthlyCashFlow, netYield, grossYield, roi, dscr, irr){
+  // Dubai-weighted (updated): ROI 25, Net 25, DSCR 20, IRR(5y) 15, Gross 10, CashFlow 5
   const B={
     gross:{excellent:8,good:6,avg:4},
     net:{excellent:6,good:4,avg:2},
     roi:{excellent:60,good:45,avg:30},
     dscr:{excellent:1.3,good:1.2,avg:1.0},
+    irr:{excellent:15,good:12,avg:8},
     cash:{excellent:2000,good:1000,avg:500}
   };
   let score=0;
-  if(roi>=B.roi.excellent) score+=30; else if(roi>=B.roi.good) score+=24; else if(roi>=B.roi.avg) score+=18; else score+=12;
-  if(netYield>=B.net.excellent) score+=30; else if(netYield>=B.net.good) score+=24; else if(netYield>=B.net.avg) score+=18; else score+=12;
+  if(roi>=B.roi.excellent) score+=25; else if(roi>=B.roi.good) score+=20; else if(roi>=B.roi.avg) score+=15; else score+=10;
+  if(netYield>=B.net.excellent) score+=25; else if(netYield>=B.net.good) score+=20; else if(netYield>=B.net.avg) score+=15; else score+=10;
   if(dscr>=B.dscr.excellent) score+=20; else if(dscr>=B.dscr.good) score+=16; else if(dscr>=B.dscr.avg) score+=12; else score+=8;
+  if(isFinite(irr)){
+    if(irr>=B.irr.excellent) score+=15; else if(irr>=B.irr.good) score+=12; else if(irr>=B.irr.avg) score+=9; else score+=6;
+  }else{
+    // if IRR unavailable, give neutral mid score
+    score+=9;
+  }
   if(grossYield>=B.gross.excellent) score+=10; else if(grossYield>=B.gross.good) score+=8; else if(grossYield>=B.gross.avg) score+=6; else score+=4;
-  if(monthlyCashFlow>=B.cash.excellent) score+=10; else if(monthlyCashFlow>=B.cash.good) score+=8; else if(monthlyCashFlow>=B.cash.avg) score+=6; else if(monthlyCashFlow>=0) score+=4; else score+=2;
+  if(monthlyCashFlow>=B.cash.excellent) score+=5; else if(monthlyCashFlow>=B.cash.good) score+=4; else if(monthlyCashFlow>=B.cash.avg) score+=3; else if(monthlyCashFlow>=0) score+=2; else score+=1;
   const grade = score>=90?'A+':score>=85?'A':score>=80?'A-':score>=75?'B+':score>=70?'B':score>=65?'B-':score>=60?'C+':score>=55?'C':score>=50?'C-':score>=40?'D':'F';
   const desc = grade.startsWith('A')?'Excellent investment potential': grade.startsWith('B')?'Solid investment verify assumptions': grade.startsWith('C')?'Borderline; negotiate price/terms': grade==='D'?'Weak; high risk':'Not recommended';
   return {score, grade, description:desc};
+}
+
+// IRR helpers (Newton-Raphson)
+function calculateIRR(cashFlows, guess = 0.10){
+  const maxIterations = 100;
+  const tolerance = 1e-5;
+  let rate = guess;
+  for(let i=0;i<maxIterations;i++){
+    let npv = 0;
+    let derivative = 0;
+    for(let j=0;j<cashFlows.length;j++){
+      const denom = Math.pow(1+rate, j);
+      npv += cashFlows[j] / denom;
+      derivative -= (j * cashFlows[j]) / Math.pow(1+rate, j+1);
+    }
+    const newRate = rate - (npv/derivative);
+    if(Math.abs(newRate - rate) < tolerance) return newRate;
+    rate = newRate;
+  }
+  return rate;
+}
+
+// Dubai property IRR with appreciation and exit
+function calculatePropertyIRR(inputs){
+  const {
+    totalInitialInvestment,
+    monthlyCashFlow,
+    loanAmount,
+    interestRate,       // decimal (e.g., 0.045)
+    loanTermYears,
+    propertyPrice,
+    appreciationRate,   // decimal (e.g., 0.03)
+    years
+  } = inputs;
+  const cashFlows = [];
+  cashFlows.push(-totalInitialInvestment); // Year 0
+  const monthlyRate = interestRate/12;
+  const numPayments = loanTermYears*12;
+  const monthlyPayment = (loanAmount>0 && numPayments>0)
+    ? (monthlyRate===0 ? loanAmount/numPayments
+      : loanAmount * (monthlyRate*Math.pow(1+monthlyRate, numPayments)) / (Math.pow(1+monthlyRate, numPayments)-1))
+    : 0;
+  // Iterate years
+  for(let year=1; year<=years; year++){
+    let annualCashFlow = monthlyCashFlow * 12;
+    // Compute equity build-up for the year
+    let startingBalance = loanAmount;
+    // advance to start of this year
+    for(let m=0; m<(year-1)*12; m++){
+      const interestPayment = startingBalance * monthlyRate;
+      const principalPayment = monthlyPayment - interestPayment;
+      startingBalance = Math.max(0, startingBalance - principalPayment);
+    }
+    let equityBuildup = 0;
+    for(let m=0; m<12; m++){
+      const interestPayment = startingBalance * monthlyRate;
+      const principalPayment = monthlyPayment - interestPayment;
+      equityBuildup += principalPayment;
+      startingBalance = Math.max(0, startingBalance - principalPayment);
+    }
+    // Add exit proceeds at final year
+    if(year === years){
+      const appreciatedValue = propertyPrice * Math.pow(1 + appreciationRate, years);
+      const remainingLoan = startingBalance;
+      const exitProceeds = Math.max(0, appreciatedValue - remainingLoan);
+      annualCashFlow += exitProceeds;
+    }
+    cashFlows.push(annualCashFlow);
+  }
+  const irr = calculateIRR(cashFlows);
+  return {
+    irr,
+    irrPercentage: (irr*100),
+    cashFlows
+  };
 }
 
 function calculate(){
@@ -277,6 +359,40 @@ function calculate(){
   safeSetText('ncoOut', formatCurrencyAED(netCashOutlay5));
   safeSetText('dsiOut', formatCurrencyAED(totalInitial + debtService5));
 
+  // IRR (5y & 10y) compute (exposed + optional UI update)
+  try{
+    const irr5 = calculatePropertyIRR({
+      totalInitialInvestment: totalInitial,
+      monthlyCashFlow,
+      loanAmount,
+      interestRate: ratePct/100,
+      loanTermYears: years,
+      propertyPrice: pv,
+      appreciationRate: 0.05,
+      years: 5
+    });
+    const irr10 = calculatePropertyIRR({
+      totalInitialInvestment: totalInitial,
+      monthlyCashFlow,
+      loanAmount,
+      interestRate: ratePct/100,
+      loanTermYears: years,
+      propertyPrice: pv,
+      appreciationRate: 0.05,
+      years: 10
+    });
+    window._irr5 = irr5.irrPercentage;
+    window._irr10 = irr10.irrPercentage;
+    if(typeof displayIRR==='function'){
+      displayIRR(irr5.irrPercentage, irr10.irrPercentage);
+    }else{
+      // safe inline display if elements exist
+      const set=(id,val)=>{ const el=document.getElementById(id); if(el){ el.textContent = isFinite(val)? val.toFixed(2)+'%':'—'; } };
+      set('irr5Val', irr5.irrPercentage);
+      set('irr10Val', irr10.irrPercentage);
+    }
+  }catch(_){}
+
   // Input Summary (top of results)
   const statusVal = (document.getElementById('status')||{}).value || 'ready';
   const handoverSel = document.getElementById('handover');
@@ -315,8 +431,44 @@ function calculate(){
   hideIfZero('sumIns', annualInsurance);
   hideIfZero('sumOther', otherExpenses);
 
+  // IRR (5y & 10y) compute (exposed + optional UI update)
+  let irr5Pct=NaN, irr10Pct=NaN;
+  try{
+    const irr5 = calculatePropertyIRR({
+      totalInitialInvestment: totalInitial,
+      monthlyCashFlow,
+      loanAmount,
+      interestRate: ratePct/100,
+      loanTermYears: years,
+      propertyPrice: pv,
+      appreciationRate: 0.05,
+      years: 5
+    });
+    const irr10 = calculatePropertyIRR({
+      totalInitialInvestment: totalInitial,
+      monthlyCashFlow,
+      loanAmount,
+      interestRate: ratePct/100,
+      loanTermYears: years,
+      propertyPrice: pv,
+      appreciationRate: 0.05,
+      years: 10
+    });
+    irr5Pct = irr5.irrPercentage;
+    irr10Pct = irr10.irrPercentage;
+    window._irr5 = irr5Pct;
+    window._irr10 = irr10Pct;
+    if(typeof displayIRR==='function'){
+      displayIRR(irr5Pct, irr10Pct);
+    }else{
+      const set=(id,val)=>{ const el=document.getElementById(id); if(el){ el.textContent = isFinite(val)? val.toFixed(2)+'%':'—'; } };
+      set('irr5Val', irr5Pct);
+      set('irr10Val', irr10Pct);
+    }
+  }catch(_){}
+
   // Grade
-  const g = computeGrade(monthlyCashFlow, netYield, grossYield, roi5, dscr);
+  const g = computeGrade(monthlyCashFlow, netYield, grossYield, roi5, dscr, irr5Pct);
   window._lastGradeInfo = g;
   safeSetText('gradeLetter', g.grade);
   safeSetText('gradeDesc', g.description);
@@ -335,11 +487,37 @@ function calculate(){
     const drivers=document.getElementById('gcDrivers');
     if(drivers){
       const roiStr = isFinite(roi5)? formatPercent(roi5,0):'—';
+      const irrStr = isFinite(irr5Pct)? irr5Pct.toFixed(2)+'%':'—';
       const dscrStr = isFinite(dscr)? dscr.toFixed(2)+'x':'—';
       const netStr = isFinite(netYield)? formatPercent(netYield,1):'—';
-      drivers.textContent = `Top drivers: ROI ${roiStr}, DSCR ${dscrStr}, Net ${netStr}`;
+      drivers.textContent = `Top drivers: ROI ${roiStr}, IRR ${irrStr}, DSCR ${dscrStr}, Net ${netStr}`;
     }
   }
+  // Build current deal object for comparison save
+  (function(){
+    const name = (document.getElementById('projectName')||{}).value || 'Deal';
+    const deal = {
+      id: Date.now(),
+      name,
+      grade: g.grade,
+      gradeScore: g.score,
+      price: pv,
+      loanAmount,
+      totalInitial,
+      monthlyPayment,
+      cashFlow: monthlyCashFlow,
+      dscr,
+      netYield,
+      grossYield,
+      roi5,
+      irr5: (typeof window._irr5==='number')? window._irr5: NaN,
+      irr10: (typeof window._irr10==='number')? window._irr10: NaN
+    };
+    window._currentDealComparison = deal;
+    const btn=document.getElementById('saveDealBtn'); if(btn){ btn.style.display='inline-flex'; }
+    // refresh chips/table if any existing deals
+    if(typeof window._cmpRender==='function'){ window._cmpRender(); }
+  })();
   // Update Down label depending on status
   (function(){
     const lab=document.getElementById('downLabel');
@@ -354,11 +532,12 @@ function calculate(){
   if(contrib){
     contrib.innerHTML='';
     const items=[
-      {name:'ROI (5y)', weight:30, value:roi5, target:60, unit:'%', achieved: Math.max(0, Math.min(1, roi5/60))},
-      {name:'Net Yield', weight:30, value:netYield, target:6, unit:'%', achieved: Math.max(0, Math.min(1, netYield/6))},
+      {name:'ROI (5y)', weight:25, value:roi5, target:60, unit:'%', achieved: Math.max(0, Math.min(1, roi5/60))},
+      {name:'Net Yield', weight:25, value:netYield, target:6, unit:'%', achieved: Math.max(0, Math.min(1, netYield/6))},
       {name:'DSCR', weight:20, value:dscr, target:1.2, unit:'x', achieved: Math.max(0, Math.min(1, dscr/1.2))},
+      {name:'IRR (5y)', weight:15, value:irr5Pct, target:12, unit:'%', achieved: Math.max(0, Math.min(1, (isFinite(irr5Pct)? irr5Pct:0)/12))},
       {name:'Gross Yield', weight:10, value:grossYield, target:8, unit:'%', achieved: Math.max(0, Math.min(1, grossYield/8))},
-      {name:'Cash Flow', weight:10, value:monthlyCashFlow, target:2000, unit:' AED/mo', achieved: Math.max(0, Math.min(1, monthlyCashFlow/2000))}
+      {name:'Cash Flow', weight:5, value:monthlyCashFlow, target:2000, unit:' AED/mo', achieved: Math.max(0, Math.min(1, monthlyCashFlow/2000))}
     ];
     let totalScore=0;
     items.forEach(it=>{ totalScore += it.weight * it.achieved; });
@@ -377,6 +556,7 @@ function calculate(){
       else if(it.name==='Net Yield'){ dVal = (isFinite(netYield)? netYield-6:0); warnBand=2; unit='%'; }
       else if(it.name==='DSCR'){ dVal = (isFinite(dscr)? dscr-1.2:0); warnBand=0.2; unit='x'; }
       else if(it.name==='Gross Yield'){ dVal = (isFinite(grossYield)? grossYield-8:0); warnBand=2; unit='%'; }
+      else if(it.name==='IRR (5y)'){ dVal = (isFinite(irr5Pct)? irr5Pct-12:0); warnBand=3; unit='%'; }
       else if(it.name==='Cash Flow'){ dVal = (isFinite(monthlyCashFlow)? monthlyCashFlow:0); warnBand=200; unit='AED'; }
       const chip=document.createElement('span'); chip.className='dchip';
       let cls='bad', arrow='↓', text='';
@@ -424,6 +604,7 @@ function calculate(){
         if(it.name==='ROI (5y)'){ dVal = (isFinite(roi5)? roi5-60:0); warnBand=20; unit='%'; }
         else if(it.name==='Net Yield'){ dVal = (isFinite(netYield)? netYield-6:0); warnBand=2; unit='%'; }
         else if(it.name==='DSCR'){ dVal = (isFinite(dscr)? dscr-1.2:0); warnBand=0.2; unit='x'; }
+        else if(it.name==='IRR (5y)'){ dVal = (isFinite(irr5Pct)? irr5Pct-12:0); warnBand=3; unit='%'; }
         else if(it.name==='Gross Yield'){ dVal = (isFinite(grossYield)? grossYield-8:0); warnBand=2; unit='%'; }
         else if(it.name==='Cash Flow'){ dVal = (isFinite(monthlyCashFlow)? monthlyCashFlow:0); warnBand=200; unit='AED'; }
         const chip=document.createElement('span'); chip.className='dchip';
@@ -976,6 +1157,49 @@ window.addEventListener('DOMContentLoaded', ()=>{
             footStyles:{ fillColor: (monthlyCashFlow>=0?[16,185,129]:[239,68,68]), textColor:255, fontStyle:'bold' },
             styles:{ fontSize:9 }
           });
+          y = doc.lastAutoTable.finalY + 12;
+          // Deal Comparison (if any saved deals)
+          try{
+            const deals = JSON.parse(localStorage.getItem('spa_deal_compare')||'[]');
+            if(deals && deals.length){
+              doc.setFont('helvetica','bold'); doc.setFontSize(14); doc.text('DEAL COMPARISON',20,y); y+=6;
+              const head = [['Metric', deals[0]?.name||'Deal 1', deals[1]?.name||'Deal 2', deals[2]?.name||'Deal 3']];
+              const fmt = (v)=> isFinite(v)? String(v): '-';
+              const fAED=(v)=> isFinite(v)? Math.round(v).toLocaleString('en-US'): '-';
+              const fPct=(v,d=1)=> isFinite(v)? v.toFixed(d)+'%':'-';
+              const fX=(v)=> isFinite(v)? v.toFixed(2)+'x':'-';
+              const body=[
+                ['Grade', ...(deals.map(d=> d? `${d.grade||'-'} (${isFinite(d.gradeScore)? Math.round(d.gradeScore):'-'}/100)`:'-'))],
+                ['Price (AED)', ...(deals.map(d=> fAED(d?.price)))],
+                ['Loan amount (AED)', ...(deals.map(d=> fAED(d?.loanAmount)))],
+                ['Total initial (AED)', ...(deals.map(d=> fAED(d?.totalInitial)))],
+                ['Monthly P&I (AED)', ...(deals.map(d=> fAED(d?.monthlyPayment)))],
+                ['Cash flow / mo (AED)', ...(deals.map(d=> fAED(d?.cashFlow)))],
+                ['DSCR', ...(deals.map(d=> fX(d?.dscr)))],
+                ['Net yield', ...(deals.map(d=> fPct(d?.netYield,1)))],
+                ['Gross yield', ...(deals.map(d=> fPct(d?.grossYield,1)))],
+                ['ROI (5y)', ...(deals.map(d=> fPct(d?.roi5,0)))],
+                ['IRR (5y)', ...(deals.map(d=> fPct(d?.irr5,2)))],
+              ];
+              doc.autoTable({
+                startY:y,
+                head: head,
+                body: body,
+                theme:'grid',
+                headStyles:{ fillColor:[59,130,246], textColor:255 },
+                styles:{ fontSize:9 }
+              });
+              y = doc.lastAutoTable.finalY + 8;
+              // Short recommendation line
+              const best = [...deals].sort((a,b)=> (b.gradeScore||0)-(a.gradeScore||0))[0];
+              const bestCF = [...deals].sort((a,b)=> (b.cashFlow||-1e9)-(a.cashFlow||-1e9))[0];
+              let line='Comparison summary: ';
+              if(best) line += `Best overall: ${best.name||'Deal'} (Grade ${best.grade||'-'}). `;
+              if(bestCF) line += `Best cash flow: ${bestCF.name||'Deal'} (AED ${isFinite(bestCF.cashFlow)? Math.round(bestCF.cashFlow).toLocaleString('en-US'):'-'} /mo).`;
+              doc.setFont('helvetica','normal'); doc.setFontSize(10);
+              doc.text(line, 20, y);
+            }
+          }catch(_){}
         }
 
         // Footer
@@ -1061,6 +1285,25 @@ window.addEventListener('DOMContentLoaded', ()=>{
       window.location.href = mailto;
     });
   }
+  // Newsletter form (simple validation + success message)
+  (function(){
+    const form=document.getElementById('newsletterForm');
+    if(!form || form._bound) return; form._bound=true;
+    const email=document.getElementById('nlEmail');
+    const consent=document.getElementById('nlConsent');
+    const msg=document.getElementById('nlMsg');
+    const emailOk=(v)=>/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v||'');
+    form.addEventListener('submit',(e)=>{
+      e.preventDefault();
+      const v=(email&&email.value||'').trim();
+      if(!emailOk(v)){ if(msg){ msg.className='nl-msg err'; msg.textContent='Please enter a valid email address.'; } return; }
+      if(!consent || !consent.checked){ if(msg){ msg.className='nl-msg err'; msg.textContent='Please confirm consent to subscribe.'; } return; }
+      try{ localStorage.setItem('nl_email', v); }catch(_){}
+      if(msg){ msg.className='nl-msg ok'; msg.textContent='Thanks! Please check your inbox for confirmation.'; }
+      if(email) email.value='';
+      if(consent) consent.checked=false;
+    });
+  })();
   // Testimonials horizontal scroller
   (function(){
     const strip=document.getElementById('tstrip');
@@ -1140,6 +1383,114 @@ window.addEventListener('DOMContentLoaded', ()=>{
   if(fbGood) fbGood.addEventListener('click',()=>{localStorage.setItem('fb_inline','helpful'); setFb('Thanks for your feedback! 👍')});
   if(fbOk) fbOk.addEventListener('click',()=>{localStorage.setItem('fb_inline','okay'); setFb('Thanks! 👌')});
   if(fbBad) fbBad.addEventListener('click',()=>{localStorage.setItem('fb_inline','confusing'); setFb('Thanks, we will improve this. 👎')});
+
+  // Deal comparison logic
+  (function(){
+    const key='spa_deal_compare';
+    const byId=(id)=>document.getElementById(id);
+    const getList=()=>{ try{ return JSON.parse(localStorage.getItem(key)||'[]'); }catch(_){ return []; } };
+    const setList=(arr)=>{ try{ localStorage.setItem(key, JSON.stringify(arr)); }catch(_){} };
+    const render=()=>{
+      const list=getList();
+      const none=byId('noDealsMessage'), wrap=byId('comparisonTableWrapper'), chips=byId('savedDealsContainer');
+      if(!chips) return;
+      // chips row
+      chips.innerHTML='';
+      if(list.length===0){
+        if(none) none.style.display='block';
+      }else{
+        if(none) none.style.display='none';
+        list.forEach((d,i)=>{
+          const el=document.createElement('div'); el.className='saved-chip';
+          el.innerHTML = `<span class="name">${d.name||('Deal '+(i+1))}</span><span class="meta">${(d.grade||'–')} • ${d.netYield!=null? d.netYield.toFixed(1)+'% net':'–'}</span><button class="rm" title="Remove">×</button>`;
+          el.querySelector('.rm').addEventListener('click',()=>{
+            const next=getList().filter(x=>x.id!==d.id); setList(next); render(); buildTable();
+          });
+          chips.appendChild(el);
+        });
+      }
+      if(wrap) wrap.style.display = list.length>0 ? 'block' : 'none';
+      buildTable();
+    };
+    const fmtAED=(v)=> isFinite(v)? 'AED '+Math.round(v).toLocaleString('en-US'):'—';
+    const fmtPct=(v, d=1)=> isFinite(v)? v.toFixed(d)+'%':'—';
+    const fmtX=(v)=> isFinite(v)? v.toFixed(2)+'x':'—';
+    const setHeader=(i,text)=>{ const el=byId('dealHeader'+i); if(el) el.textContent=text; };
+    const buildTable=()=>{
+      const list=getList();
+      setHeader(1, list[0]?.name||'Deal 1');
+      setHeader(2, list[1]?.name||'Deal 2');
+      setHeader(3, list[2]?.name||'Deal 3');
+      const classify=(name,val)=>{
+        if(name==='DSCR'){ if(!isFinite(val)) return 'warn'; return val>=1.2?'good':val>=1.0?'warn':'bad'; }
+        if(name==='Net yield'){ if(!isFinite(val)) return 'warn'; return val>=6?'good':val>=4?'warn':'bad'; }
+        if(name==='IRR (5y)'){ if(!isFinite(val)) return 'warn'; return val>=12?'good':val>=9?'warn':'bad'; }
+        if(name==='Cash flow / mo'){ if(!isFinite(val)) return 'warn'; return val>=0?'good':val>=-200?'warn':'bad'; }
+        if(name==='Grade'){ if(!isFinite(val)) return 'warn'; return val>=80?'good':val>=65?'warn':'bad'; }
+        return '';
+      };
+      const bar=(pct)=> `<div class="bar-mini"><i style="width:${Math.max(0,Math.min(100, pct))}%"></i></div>`;
+      const chip=(cls,text)=> `<span class="chip-val ${cls}">${text}</span>`;
+      const rows=[
+        {label:'Grade', render:d=> (d? `${chip(classify('Grade', d.gradeScore),' '+(d.grade||'—'))} <span class="val-muted">(${isFinite(d.gradeScore)? Math.round(d.gradeScore):'—'}/100)</span> ${bar(Math.min(100, d.gradeScore||0))}`:'—')},
+        {label:'Price', render:d=> d? fmtAED(d.price):'—'},
+        {label:'Loan amount', render:d=> d? fmtAED(d.loanAmount):'—'},
+        {label:'Total initial', render:d=> d? fmtAED(d.totalInitial):'—'},
+        {label:'Monthly P&I', render:d=> d? fmtAED(d.monthlyPayment):'—'},
+        {label:'Cash flow / mo', render:d=> d? chip(classify('Cash flow / mo', d.cashFlow), fmtAED(d.cashFlow)):'—'},
+        {label:'DSCR', render:d=> d? chip(classify('DSCR', d.dscr), fmtX(d.dscr)):'—'},
+        {label:'Net yield', render:d=> d? `${chip(classify('Net yield', d.netYield), fmtPct(d.netYield,1))} ${bar(Math.min(100, (d.netYield||0)/6*100))}`:'—'},
+        {label:'Gross yield', render:d=> d? fmtPct(d.grossYield,1):'—'},
+        {label:'ROI (5y)', render:d=> d? fmtPct(d.roi5,0):'—'},
+        {label:'IRR (5y)', render:d=> d? `${chip(classify('IRR (5y)', d.irr5), fmtPct(d.irr5,2))} ${bar(Math.min(100, (d.irr5||0)/12*100))}`:'—'}
+      ];
+      const body=byId('comparisonTableBody'); if(!body) return;
+      body.innerHTML='';
+      rows.forEach(r=>{
+        const tr=document.createElement('tr');
+        const td0=document.createElement('td'); td0.textContent=r.label; tr.appendChild(td0);
+        for(let i=0;i<3;i++){
+          const td=document.createElement('td');
+          const d=list[i];
+          td.innerHTML = d? r.render(d): '—';
+          tr.appendChild(td);
+        }
+        body.appendChild(tr);
+      });
+      buildSummary(list);
+    };
+    const buildSummary=(list)=>{
+      const el=byId('cmpSummary'); if(!el) return;
+      if(!list.length){ el.innerHTML=''; return; }
+      const best = [...list].sort((a,b)=> (b.gradeScore||0) - (a.gradeScore||0))[0];
+      const bestCF = [...list].sort((a,b)=> (b.cashFlow||-1e9) - (a.cashFlow||-1e9))[0];
+      const risks = list.filter(d=> (isFinite(d.dscr) && d.dscr<1.0) || (isFinite(d.netYield) && d.netYield<4));
+      const riskNames = risks.map(d=> d.name).join(', ');
+      const bestLine = best ? `${best.name} • Grade ${best.grade||'-'} (${Math.round(best.gradeScore||0)}/100)` : '';
+      const cfLine = bestCF ? `${bestCF.name} • ${fmtAED(bestCF.cashFlow)}/mo` : '';
+      const riskLine = risks.length ? `${riskNames} • check DSCR and Net` : '';
+      el.innerHTML = `
+        <div class="cmp-lines">
+          ${best ? `<div class="cmp-line good"><span class="k">Best overall</span><span class="v">${bestLine}</span></div>`:''}
+          ${bestCF ? `<div class="cmp-line good"><span class="k">Best cash flow</span><span class="v">${cfLine}</span></div>`:''}
+          ${risks.length ? `<div class="cmp-line warn"><span class="k">Risk flags</span><span class="v">${riskLine}</span><span class="sub">DSCR ≥ 1.20 • Net ≥ 6%</span></div>`:''}
+        </div>
+      `;
+    };
+    const bind=()=>{
+      const save=byId('saveDealBtn'); const clear=byId('clearComparisonBtn');
+      if(save && !save._bound){ save._bound=true; save.addEventListener('click', ()=>{
+        const cur=window._currentDealComparison; if(!cur) return;
+        const list=getList();
+        const next=[...list, cur].slice(-3); setList(next); render();
+      });}
+      if(clear && !clear._bound){ clear._bound=true; clear.addEventListener('click', ()=>{ setList([]); render(); });}
+      render();
+    };
+    bind();
+    // expose helpers for debug
+    window._cmpRender = render;
+  })();
 
   // show live values for sliders
   const bindVal=(id,label,fmt=(v)=>v)=>{const el=$(id); const out=$(label); if(el&&out){ const fn=()=> out.textContent=fmt(el.value); el.addEventListener('input',fn); fn(); }}

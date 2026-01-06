@@ -35,8 +35,7 @@
         <div class="promo-card promo-hero">
           <div class="promo-icon-lg">✓</div>
           <h3 class="promo-title">Start in 4 steps</h3>
-          <p class="promo-desc">Enter a few details to see Cash Flow, Net/Gross Yield and 5‑year ROI.</p>
-          <p class="promo-trust">Dubai benchmarks applied where relevant.</p>
+          <p class="promo-desc">Enter a few details to see Cash Flow, Net/Gross Yield, DSCR, 5‑year ROI and IRR (5y).</p>
           <ul class="promo-list">
             <li><span>ROI analysis and payback time</span></li>
             <li><span>Monthly cash flow after all costs</span></li>
@@ -313,6 +312,8 @@
     </div>
   </section>
 
+  
+
   <!-- White calculator section below hero -->
   <section class="calc-section" id="calcSection">
     <div class="wrap">
@@ -324,8 +325,9 @@
 
   <main class="wrap results">
     <h2>Your Investment Analysis</h2>
-    <h3 class="section-title">Input Summary</h3>
-    <div class="inp-grid">
+    <details class="disclose" open>
+      <summary>Input Summary</summary>
+      <div class="inp-grid">
       <div class="card">
         <div class="head-row"><h3>Property</h3><a href="#calcStart" class="edit goto-step" data-step="1">Edit</a></div>
         <ul class="list small">
@@ -372,15 +374,19 @@
           <li class="total"><span>Opex / year</span><strong id="sumOpexYr">—</strong></li>
         </ul>
       </div>
+      </div>
+    </details>
+    <div class="center" style="margin-top:6px">
+      <button class="btn ghost" id="saveDealBtn" style="display:none;">Save for comparison</button>
     </div>
     <div class="section-sep" aria-hidden="true"></div>
-    <h3 class="section-title">Grade & Rent guidance</h3>
-    
-    <!-- Compact scorecard preview -->
-    <div class="grid-2 cols">
+    <details class="disclose" open>
+      <summary>Grade & Rent guidance</summary>
+      <!-- Compact scorecard preview -->
+      <div class="grid-2 cols">
       <div>
         <div class="grade-compact card" id="gradeCompact">
-          <div class="gc-label">Grade <span class="info">i<span class="itip">Investment Grade is a weighted score (0–100) tailored to Dubai buy‑to‑let: ROI (5y) 30%, Net Yield 30%, DSCR 20%, Gross Yield 10%, Cash Flow 10%. Targets: ROI ≥60% (5y), Net ≥6%, DSCR ≥1.20x, Gross ≥8%, Cash Flow ≥ AED 0/mo. Each metric contributes linearly up to its target (capped), then summed to 100. Letter bands: A ≥85, B 70–84, C 50–69, D 40–49, F &lt;40.<br><br><b>Example</b><br>ROI 50% → 50/60 ≈ 0.83 × 30 ≈ 25<br>Net 5.0% → 5/6 ≈ 0.83 × 30 ≈ 25<br>DSCR 1.10× → 1.10/1.20 ≈ 0.92 × 20 ≈ 18<br>Gross 7.0% → 7/8 ≈ 0.88 × 10 ≈ 9<br>Cash flow AED 1,000 → 1000/2000 = 0.50 × 10 = 5<br><b>Total ≈ 82 → Grade B</b></span></span></div>
+          <div class="gc-label">Grade <span class="info">i<span class="itip">Investment Grade is a weighted score (0–100) tailored to Dubai buy‑to‑let: ROI (5y) 25%, Net Yield 25%, DSCR 20%, IRR (5y) 15%, Gross Yield 10%, Cash Flow 5%. Targets: ROI ≥60% (5y), Net ≥6%, DSCR ≥1.20x, IRR ≥12% (5y), Gross ≥8%, Cash Flow ≥ AED 0/mo. Each metric contributes linearly up to its target (capped), then summed to 100. Letter bands: A ≥85, B 70–84, C 50–69, D 40–49, F &lt;40.<br><br><b>Example</b><br>ROI 50% → 50/60 ≈ 0.83 × 25 ≈ 21<br>Net 5.0% → 5/6 ≈ 0.83 × 25 ≈ 21<br>DSCR 1.10× → 1.10/1.20 ≈ 0.92 × 20 ≈ 18<br>IRR 10% → 10/12 ≈ 0.83 × 15 ≈ 12<br>Gross 7.0% → 7/8 ≈ 0.88 × 10 ≈ 9<br>Cash flow AED 1,000 → 1000/2000 = 0.50 × 5 = 3<br><b>Total ≈ 84 → Grade B+</b></span></span></div>
           <div class="gc-head">
             <div class="gc-tile" id="gcLetter">—</div>
             <span class="gc-score"><b id="gcScore">—</b>/100</span>
@@ -409,7 +415,7 @@
           </details>
         </div>
       </div>
-      <div class="card rec-compact">
+        <div class="card rec-compact">
         <div class="recc-main">
           <div class="rec-h">Rent guidance <span class="info">i<span class="itip">Shows if your current rent meets your chosen net yield. Green = above target, Red = below target (AED gap shown), Gray = near. Target rent is computed from your inputs (vacancy, fees, extra income).</span></span></div>
           <div class="rec-rows">
@@ -442,8 +448,9 @@
             </div>
           </div>
         </div>
+        </div>
       </div>
-    </div>
+    </details>
 
     <!-- Segmented pill preview -->
     <div class="grade-box card" style="display:none">
@@ -482,7 +489,48 @@
 
     
 
-    <div class="center">
+    
+
+    <!-- Deal Comparison Section -->
+    <details class="deal-comp">
+      <summary>Deal comparison</summary>
+      <div class="deal-comparison-wrapper">
+        <div class="comparison-header">
+          <h3>Deal comparison</h3>
+          <p class="muted small">Compare up to 3 properties side‑by‑side</p>
+        </div>
+        
+        <div class="saved-deals-container" id="savedDealsContainer">
+          <p class="no-deals-message" id="noDealsMessage">
+            Complete an analysis and click “Save for comparison” to start.
+          </p>
+        </div>
+        
+        
+        
+        <div class="comparison-table-wrapper" id="comparisonTableWrapper" style="display:none;">
+          <table class="comparison-table">
+            <thead>
+              <tr>
+                <th class="metric-header">Metric</th>
+                <th class="deal-header" id="dealHeader1">Deal 1</th>
+                <th class="deal-header" id="dealHeader2">Deal 2</th>
+                <th class="deal-header" id="dealHeader3">Deal 3</th>
+              </tr>
+            </thead>
+            <tbody id="comparisonTableBody">
+            </tbody>
+          </table>
+          
+          <div class="comparison-actions">
+            <button class="btn ghost" id="clearComparisonBtn">Clear all deals</button>
+          </div>
+        </div>
+        <div id="cmpSummary" class="cmp-summary"></div>
+      </div>
+    </details>
+
+    <div class="center" style="margin-top:14px">
       <button class="btn download" id="downloadBtn">Download Professional Report</button>
       <div class="share-dd" id="shareDD">
         <button class="btn ghost" id="shareToggle" aria-haspopup="true" aria-expanded="false">Share ▾</button>
@@ -502,13 +550,35 @@
   <section class="cta-band">
     <div class="wrap center">
       <h3>Ready to Make Smarter Property Investments?</h3>
-      <p>Join other investors using Smart Property Analyzer to maximize returns and reduce risk.</p>
+      <p>Join other investors using Smart Property Analyzer to maximize returns and reduce risk. In 4 steps you’ll see monthly cash flow, Net/Gross Yield, DSCR, ROI and IRR.</p>
       <div class="cta">
         <a class="btn white" href="#calcStart">Start analysis</a>
         <a class="btn ghost" href="steps.html">Learn more</a>
       </div>
     </div>
   </section>
+
+  <section class="nl-band" id="newsletter">
+    <div class="wrap center">
+      <h3>Stay updated</h3>
+      <p class="nl-sub">Subscribe to receive Dubai market insights and product updates.</p>
+      <div class="nl-card">
+        <form id="newsletterForm" class="nl-form" novalidate>
+          <div class="nl-group">
+            <input type="email" id="nlEmail" placeholder="Your email address" aria-label="Email" required />
+            <button class="btn" type="submit">Subscribe</button>
+          </div>
+          <label class="nl-consent">
+            <input type="checkbox" id="nlConsent" required />
+            I agree to receive emails and accept the <a href="privacy.html">privacy policy</a>.
+          </label>
+          <div class="nl-msg" id="nlMsg" role="status" aria-live="polite"></div>
+        </form>
+      </div>
+    </div>
+  </section>
+
+  
 
   <section class="wrap testimonials">
     <div class="twrap">
