@@ -1090,7 +1090,23 @@ window.addEventListener('DOMContentLoaded', ()=>{
         URL.revokeObjectURL(url);
         return; // success, skip legacy fallback
       } catch (e) {
-        console.warn('Server PDF failed, fallback to legacy jsPDF...', e);
+        console.warn('Server PDF failed, trying browser pdf-lib fallback…', e);
+        try {
+          const mod = await import('./pdf/investorMemo.browser.js');
+          const bytes = await mod.generateInvestorPdfBrowser(payload);
+          const blob = new Blob([bytes], { type: 'application/pdf' });
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = `investor-memo-${Date.now()}.pdf`;
+          document.body.appendChild(a);
+          a.click();
+          a.remove();
+          URL.revokeObjectURL(url);
+          return;
+        } catch(e2){
+          console.warn('Browser pdf-lib fallback failed, switching to legacy jsPDF…', e2);
+        }
       }
       try{
         const { jsPDF } = window.jspdf || {};
