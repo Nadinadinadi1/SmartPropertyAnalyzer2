@@ -116,7 +116,15 @@ function calculatePropertyIRR(inputs){
   };
 }
 
+// Gate analysis until user clicks Analyze
+window._analysisLocked = true;
+
 function calculate(){
+  if(window._analysisLocked){
+    const l=document.getElementById('limitNote');
+    if(l){ l.style.display='block'; l.textContent='Fill in the steps and press Analyze to run the full analysis.'; }
+    return;
+  }
   // Financing inputs
   const pv = valNum('propertyValue');
   const downPct = valNum('downPayment');
@@ -823,6 +831,45 @@ function calculate(){
 }
 
 window.addEventListener('DOMContentLoaded', ()=>{
+  // Soft access gate with code "smart"
+  (function(){
+    try{
+      const KEY='spa_soft_access';
+      if(localStorage.getItem(KEY)==='1') return;
+      const overlay=document.createElement('div');
+      overlay.className='legal-overlay';
+      overlay.innerHTML=`<div class="legal-box" role="dialog" aria-label="Access required">
+        <h3 style="margin-bottom:6px">Quick access</h3>
+        <p style="margin:0 0 8px;color:#334155">Enter the access code to unlock the analyzer.</p>
+        <input id="accCode" type="password" placeholder="Access code" aria-label="Access code" style="width:100%;padding:.75rem .85rem;border:1px solid #dbe4ff;border-radius:10px;margin:6px 0" />
+        <div class="legal-actions">
+          <button id="accGo" class="btn">Unlock</button>
+        </div>
+        <div id="accMsg" class="nl-msg" aria-live="polite"></div>
+      </div>`;
+      document.body.appendChild(overlay);
+      const go=overlay.querySelector('#accGo');
+      const inp=overlay.querySelector('#accCode');
+      const msg=overlay.querySelector('#accMsg');
+      const check=()=>{
+        const ok=(inp.value||'').trim().toLowerCase()==='smart';
+        if(ok){ localStorage.setItem(KEY,'1'); overlay.remove(); }
+        else{ if(msg){ msg.className='nl-msg err'; msg.textContent='Incorrect code. Try again.'; } inp.focus(); }
+      };
+      go.addEventListener('click', check);
+      inp.addEventListener('keydown',(e)=>{ if(e.key==='Enter') check(); });
+    }catch(_){}
+  })();
+  // Ensure Deal Comparison starts empty on first visit
+  (function(){
+    try{
+      const mark='spa_first_visit_init';
+      if(!localStorage.getItem(mark)){
+        localStorage.setItem(mark,'1');
+        localStorage.removeItem('spa_deal_compare');
+      }
+    }catch(_){}
+  })();
   // Wizard navigation
   let step=1; const maxStep=4;
   const setStepsMinHeight=()=>{
@@ -961,10 +1008,65 @@ window.addEventListener('DOMContentLoaded', ()=>{
     el.addEventListener('change', calculate);
   });
 
-  // No usage limits during testing
-  const limit=$("limitNote"); if(limit){ limit.textContent=''; limit.style.display='none'; }
+  // Analysis gate notice
+  const limit=$("limitNote"); if(limit){ limit.textContent='Fill in the steps and press Analyze to run the full analysis.'; limit.style.display='block'; }
   const analyze=$("analyzeBtn");
-  if(analyze) analyze.addEventListener('click', ()=>{ calculate(); });
+  if(analyze) analyze.addEventListener('click', ()=>{
+    const l=$("limitNote");
+    if(l){ l.style.display='none'; l.textContent=''; }
+    analyze.disabled=true;
+    if($("prevStep")) $("prevStep").disabled=true;
+    if($("nextStep")) $("nextStep").disabled=true;
+    // Build analyzing modal
+    const overlay=document.createElement('div'); overlay.className='calc-overlay';
+    overlay.innerHTML=`
+      <div class="calc-box" role="dialog" aria-live="polite" aria-label="Analyzing">
+        <div class="calc-head">
+          <h3>Analyzing your deal</h3>
+        </div>
+        <div class="calc-body">
+          <div class="calc-art"><img src="logo-bars.svg" alt="Analyzer logo"></div>
+          <div class="calc-copy">
+            <div>Crunching numbers and running checks…</div>
+            <div class="calc-tip" id="calcTip">Estimating DSCR and Net Yield…</div>
+            <div class="calc-bar"><i id="calcProg"></i></div>
+          </div>
+        </div>
+      </div>`;
+    document.body.appendChild(overlay);
+    const tips=[
+      'Estimating DSCR and Net Yield…',
+      'Computing 5‑year ROI and IRR…',
+      'Applying vacancy and expenses…',
+      'Checking mortgage amortization…',
+      'Building comparison metrics…'
+    ];
+    const tipEl=overlay.querySelector('#calcTip');
+    const progEl=overlay.querySelector('#calcProg');
+    // Progress animation ~10s
+    const total=10000;
+    const start=Date.now();
+    let tipIdx=0;
+    const raf=()=>{
+      const elapsed=Date.now()-start;
+      const pct=Math.max(0, Math.min(100, (elapsed/total)*100));
+      if(progEl) progEl.style.width=pct+'%';
+      if(tipEl && elapsed> (tipIdx+1)*(total/tips.length) && tipIdx<tips.length-1){
+        tipIdx++; tipEl.textContent=tips[tipIdx];
+      }
+      if(elapsed<total){ requestAnimationFrame(raf); }
+    };
+    requestAnimationFrame(raf);
+    setTimeout(()=>{
+      window._analysisLocked = false;
+      try{ calculate(); }catch(_){}
+      try{ overlay.remove(); }catch(_){}
+      analyze.disabled=false;
+      if($("prevStep")) $("prevStep").disabled=false;
+      if($("nextStep")) $("nextStep").disabled=false;
+      const h=document.querySelector('main.wrap.results h2'); if(h){ h.scrollIntoView({behavior:'smooth', block:'start'}); }
+    }, total);
+  });
 
   const proBtn=document.getElementById('downloadBtn');
   if(proBtn){
@@ -1334,6 +1436,85 @@ window.addEventListener('DOMContentLoaded', ()=>{
     window._cmpRender = render;
   })();
 
+  // Cookie consent manager (basic GDPR)
+  (function(){
+    const KEY='spa_cookie_consent';
+    const get=()=>{ try{ return JSON.parse(localStorage.getItem(KEY)||'{}'); }catch(_){ return {}; } };
+    const set=(obj)=>{ try{ localStorage.setItem(KEY, JSON.stringify(obj||{})); }catch(_){} };
+    const loadScript=(src, attrs={})=>{
+      const s=document.createElement('script'); s.src=src;
+      Object.entries(attrs).forEach(([k,v])=> s.setAttribute(k, v));
+      document.head.appendChild(s);
+    };
+    const apply=()=>{
+      const c=get();
+      if(c.analytics){
+        // Plausible (cookieless)
+        if(!document.querySelector('script[data-plausible="1"]')){
+          loadScript('https://plausible.io/js/script.js', {'defer':'', 'data-domain':'smart-property-analyzer2-9hj8.vercel.app', 'data-plausible':'1'});
+        }
+      }
+      if(c.session){
+        // Microsoft Clarity
+        if(!window.clarity){
+          (function(c,l,a,r,i,t,y){c[a]=c[a]||function(){(c[a].q=c[a].q||[]).push(arguments)};t=l.createElement(r);t.async=1;t.src='https://www.clarity.ms/tag/'+i;y=l.getElementsByTagName(r)[0];y.parentNode.insertBefore(t,y);})(window,document,'clarity','script','X-REPLACE-CLARITY-ID');
+        }
+      }
+    };
+    // Add "Cookie settings" link in footer
+    (function(){
+      const copy=document.querySelector('.footer .copy');
+      if(copy && !document.getElementById('cookieSettingsLink')){
+        const a=document.createElement('a'); a.id='cookieSettingsLink'; a.href='#'; a.textContent='Cookie settings'; a.style.marginLeft='6px';
+        a.addEventListener('click',(e)=>{ e.preventDefault(); show(true); });
+        copy.appendChild(document.createTextNode(' · '));
+        copy.appendChild(a);
+      }
+    })();
+    const show=(openFromLink=false)=>{
+      if(document.querySelector('.cookie-overlay')) return;
+      const c=get();
+      const overlay=document.createElement('div'); overlay.className='cookie-overlay';
+      overlay.innerHTML=`
+        <div class="cookie-box">
+          <div class="cookie-head">
+            <h3 style="margin:0;color:#0b1e47">Cookies & privacy</h3>
+          </div>
+          <div class="cookie-body">
+            <div>
+              <p style="margin:0 0 6px;color:#334155">We use cookies to improve the experience. You can change your choice anytime.</p>
+              <p style="margin:0;color:#334155">Read our <a href="privacy.html" target="_blank" rel="noopener">Privacy Policy</a>.</p>
+            </div>
+            <div>
+              <label class="cookie-opt"><input type="checkbox" id="ckAnalytics"> <span>Analytics (Plausible)</span></label>
+              <label class="cookie-opt"><input type="checkbox" id="ckSession"> <span>Experience (Microsoft Clarity)</span></label>
+            </div>
+          </div>
+          <div class="cookie-actions">
+            <button class="btn ghost" id="ckReject">Reject all</button>
+            <button class="btn" id="ckAcceptSel">Accept selected</button>
+            <button class="btn" id="ckAcceptAll">Accept all</button>
+          </div>
+        </div>`;
+      document.body.appendChild(overlay);
+      const elA=overlay.querySelector('#ckAnalytics');
+      const elS=overlay.querySelector('#ckSession');
+      elA.checked = !!c.analytics;
+      elS.checked = !!c.session;
+      const reject=()=>{ set({analytics:false, session:false}); overlay.remove(); };
+      const acceptSel=()=>{ set({analytics:elA.checked, session:elS.checked}); overlay.remove(); apply(); };
+      const acceptAll=()=>{ set({analytics:true, session:true}); overlay.remove(); apply(); };
+      overlay.querySelector('#ckReject').addEventListener('click', reject);
+      overlay.querySelector('#ckAcceptSel').addEventListener('click', acceptSel);
+      overlay.querySelector('#ckAcceptAll').addEventListener('click', acceptAll);
+    };
+    const consent=get();
+    if(consent && (typeof consent.analytics!=='undefined' || typeof consent.session!=='undefined')){
+      apply();
+    }else{
+      show(false);
+    }
+  })();
   // show live values for sliders
   const bindVal=(id,label,fmt=(v)=>v)=>{const el=$(id); const out=$(label); if(el&&out){ const fn=()=> out.textContent=fmt(el.value); el.addEventListener('input',fn); fn(); }}
   bindVal('propertyValue','priceVal',(v)=>'AED '+parseInt(v).toLocaleString('en-US'));
