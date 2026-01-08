@@ -700,6 +700,15 @@ h1,h2,h3{font-family:var(--font-head);font-weight:800;color:#0b1e47}
 .share-menu .menu-item{display:block;width:100%;text-align:left;background:#fff;border:0;padding:10px 12px;font-weight:700;color:#0f172a;cursor:pointer}
 .share-menu .menu-item:hover{background:#f1f5f9}
 
+/* Legal acceptance modal */
+.legal-overlay{position:fixed;inset:0;background:rgba(11,17,35,.85);z-index:9000;display:flex;align-items:center;justify-content:center;padding:16px}
+.legal-box{background:#fff;border:1px solid #e5e7eb;border-radius:12px;max-width:540px;width:96%;box-shadow:0 20px 60px rgba(0,0,0,.35);padding:16px}
+.legal-box h3{margin:0 0 8px;color:#0b1e47}
+.legal-box p{margin:0 0 8px;color:#334155}
+.legal-check{display:flex;align-items:center;gap:8px;margin:10px 0}
+.legal-actions{display:flex;gap:8px;justify-content:flex-end;margin-top:10px}
+.legal-actions .btn{min-width:120px}
+
 /* Offplan chips */
 .offplan-chips{display:flex;gap:6px;flex-wrap:wrap;margin-top:6px}
 .chip-mini{background:#f3f4f6;border-radius:9999px;padding:4px 8px;font-weight:700;color:#0f172a;font-size:.8rem;border:1px solid var(--line)}

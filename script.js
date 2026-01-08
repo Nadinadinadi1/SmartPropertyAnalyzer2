@@ -1414,32 +1414,7 @@ window.addEventListener('DOMContentLoaded', ()=>{
   }
 });
 
-// --- Beta soft invite gate (soft gating for testers) ---
-(function(){
-  try{
-    const ok = localStorage.getItem('spa_beta_access')==='1';
-    const params=new URLSearchParams(location.search);
-    const code=(params.get('invite')||'').toUpperCase();
-    const allow=['SPA2026','BETA','SMART'];
-    if(!ok){
-      if(code && allow.includes(code)){ localStorage.setItem('spa_beta_access','1'); return; }
-      const overlay=document.createElement('div');
-      Object.assign(overlay.style,{position:'fixed',inset:'0',background:'rgba(10,15,35,.85)',zIndex:'10000',display:'flex',alignItems:'center',justifyContent:'center'});
-      overlay.innerHTML=`<div style="background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:16px 18px;max-width:360px;width:92%;text-align:center;box-shadow:0 20px 60px rgba(0,0,0,.35)">
-        <h3 style="margin:0 0 8px;color:#0b1e47">Beta access</h3>
-        <p style="margin:0 0 10px;color:#334155">Enter your invite code to continue.</p>
-        <input id="inviteCode" type="text" placeholder="Invite code" style="width:100%;padding:.7rem .8rem;border:1px solid #dbe4ff;border-radius:10px;margin-bottom:8px" />
-        <button id="inviteGo" class="btn" style="width:100%">Unlock</button>
-      </div>`;
-      document.body.appendChild(overlay);
-      const go=overlay.querySelector('#inviteGo');
-      const inp=overlay.querySelector('#inviteCode');
-      const valid=(v)=> allow.includes((v||'').toUpperCase());
-      go.addEventListener('click',()=>{ if(valid(inp.value)){ localStorage.setItem('spa_beta_access','1'); overlay.remove(); } else { inp.style.borderColor='#ef4444'; }});
-      inp.addEventListener('keydown',(e)=>{ if(e.key==='Enter') go.click(); });
-    }
-  }catch(_){}
-})();
+// Beta access gate removed
 
 // --- Analytics helpers and events (Plausible) ---
 window._track=function(name, props){ try{ if(window.plausible){ window.plausible(name, props? {props}: undefined); } }catch(_){} };
@@ -1466,4 +1441,31 @@ document.addEventListener('click',(e)=>{
   const copy=document.getElementById('shareBtn'); if(copy) copy.addEventListener('click',()=> window._track('share_copy'));
   const wa=document.getElementById('shareWA'); if(wa) wa.addEventListener('click',()=> window._track('share_whatsapp'));
   const em=document.getElementById('shareEmail'); if(em) em.addEventListener('click',()=> window._track('share_email'));
+})();
+// Legal acceptance modal (first visit)
+(function(){
+  try{
+    const k='spa_disclaimer_accepted';
+    if(localStorage.getItem(k)==='1') return;
+    const overlay=document.createElement('div');
+    overlay.className='legal-overlay';
+    overlay.innerHTML = `
+      <div class="legal-box">
+        <h3>Important: Disclaimer</h3>
+        <p>This analyzer is for information only and is <strong>not financial advice</strong>. Results (ROI, IRR, yields, DSCR) are estimates and depend on your inputs and market conditions.</p>
+        <p>By continuing you acknowledge our <a href="disclaimer.html" target="_blank" rel="noopener">Disclaimer</a>.</p>
+        <label class="legal-check"><input id="legalAccept" type="checkbox" /> <span>I have read and accept the Disclaimer.</span></label>
+        <div class="legal-actions">
+          <button id="legalContinue" class="btn" disabled>Continue</button>
+        </div>
+      </div>`;
+    document.body.appendChild(overlay);
+    const cb=overlay.querySelector('#legalAccept');
+    const go=overlay.querySelector('#legalContinue');
+    cb.addEventListener('change',()=>{ go.disabled = !cb.checked; });
+    go.addEventListener('click',()=>{
+      localStorage.setItem(k,'1');
+      overlay.remove();
+    });
+  }catch(_){}
 })();
