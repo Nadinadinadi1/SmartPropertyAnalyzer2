@@ -19,6 +19,7 @@
   <header class="nav">
     <div class="wrap">
       <a href="index.html" class="brand">Smart Property Analyzer - Dubai</a>
+      <button class="nav-toggle" id="navToggle" aria-label="Open menu" aria-expanded="false">☰</button>
       <nav class="menu">
         <a href="index.html">Home</a>
         <a href="steps.html">How it works</a>
@@ -34,22 +35,56 @@
     <div class="wrap">
       <div class="hero-copy">
         <h1>Contact</h1>
-        <p>Questions, feedback, or partnership ideas? We’d love to hear from you.</p>
+        <p>Questions or feedback? Send us a note and we’ll get back to you.</p>
       </div>
     </div>
   </section>
 
   <main class="wrap results">
-    <div class="card">
-      <h3>Get in touch</h3>
-      <p>Use the “Beta feedback” button in the app for quick input, or email us at <a href="mailto:hello@example.com">hello@example.com</a>. We typically respond within 1–2 business days.</p>
-    </div>
-    <div class="card">
-      <h3>What helps us help you</h3>
-      <p>If you’re reporting a result you don’t expect, include the property price, down payment, rate, rent and fees. A screenshot is even better.</p>
-    </div>
-    <div class="center">
-      <a class="btn" href="index.html#calcStart">Analyze a deal</a>
+    <div class="grid-2 cols">
+      <div class="card">
+        <h3>Send us a message</h3>
+        <form id="contactForm" class="beta-form" novalidate>
+          <div class="grid-2 cols">
+            <label>First name*
+              <input type="text" id="cFirst" placeholder="First name" required />
+            </label>
+            <label>Last name*
+              <input type="text" id="cLast" placeholder="Last name" required />
+            </label>
+          </div>
+          <div class="grid-2 cols">
+            <label>Phone number*
+              <input type="tel" id="cPhone" placeholder="+31 6 1234 5678" required />
+            </label>
+            <label>Email address*
+              <input type="email" id="cEmail" placeholder="you@example.com" required />
+            </label>
+          </div>
+          <label>Message
+            <textarea id="cMsg" placeholder="How can we help?" required></textarea>
+          </label>
+          <label class="nl-consent">
+            <input type="checkbox" id="cTerms" required />
+            I accept the <a href="privacy.html" target="_blank" rel="noopener">terms</a>.
+          </label>
+          <div class="center">
+            <button class="btn" type="submit">Send message</button>
+          </div>
+          <div class="nl-msg" id="contactMsg" role="status" aria-live="polite"></div>
+        </form>
+      </div>
+      <div class="card">
+        <h3>Location</h3>
+        <p class="muted">Amsterdam, Netherlands</p>
+        <div style="border:1px solid var(--line);border-radius:12px;overflow:hidden;background:linear-gradient(135deg,#eef2ff,#f6f9ff);display:flex;align-items:center;justify-content:center;height:220px">
+          <div style="text-align:center">
+            <div style="font-size:42px;line-height:1">📍</div>
+            <div style="font-weight:800;color:#0b1e47;margin-top:6px">Amsterdam</div>
+            <div style="color:#64748b">The Netherlands</div>
+          </div>
+        </div>
+      </div>
     </div>
   </main>
 

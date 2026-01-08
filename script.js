@@ -278,6 +278,19 @@ function calculate(){
     el.className='kt-delta '+cls;
     el.innerHTML = `${fmtAED(delta)} <span class="arr">${arrow}</span>`;
   })();
+  // Tooltip tap/click support (mobile-friendly)
+  (function(){
+    const infos = document.querySelectorAll('.info');
+    const closeAll = ()=> infos.forEach(i=>{ i.classList.remove('open'); i.setAttribute('aria-expanded','false'); });
+    infos.forEach(i=>{
+      if(!i.getAttribute('tabindex')) i.setAttribute('tabindex','0');
+      i.setAttribute('role','button');
+      i.setAttribute('aria-expanded','false');
+      i.addEventListener('click', (e)=>{ e.stopPropagation(); const isOpen=i.classList.toggle('open'); i.setAttribute('aria-expanded', String(isOpen)); if(isOpen){ infos.forEach(j=>{ if(j!==i) j.classList.remove('open'); }); } });
+      i.addEventListener('keydown', (e)=>{ if(e.key==='Enter' || e.key===' '){ e.preventDefault(); i.click(); } if(e.key==='Escape'){ i.classList.remove('open'); i.setAttribute('aria-expanded','false'); } });
+    });
+    document.addEventListener('click', ()=> closeAll());
+  })();
   // Rental price recommendation
   (function(){
     const sel=document.getElementById('recTarget');
@@ -531,6 +544,7 @@ function calculate(){
     };
     window._currentDealComparison = deal;
     const btn=document.getElementById('saveDealBtn'); if(btn){ btn.style.display='inline-flex'; }
+    const btn2=document.getElementById('saveDealBtn2'); if(btn2){ btn2.style.display='inline-flex'; }
     // refresh chips/table if any existing deals
     if(typeof window._cmpRender==='function'){ window._cmpRender(); }
   })();
@@ -594,11 +608,12 @@ function calculate(){
       const tip=document.createElement('span'); tip.className='info'; tip.textContent='i';
       const tipBox=document.createElement('span'); tipBox.className='itip';
       let tipText='Metric info';
-      if(it.name==='ROI (5y)') tipText='Total 5‑year return on equity. Healthy: ≥ 60% (Dubai benchmark).';
-      else if(it.name==='Net Yield') tipText='NOI ÷ price (after vacancy & opex). Healthy: ≥ 6%.';
-      else if(it.name==='DSCR') tipText='NOI ÷ monthly P&I. Healthy: ≥ 1.20× (borderline 1.0–1.2).';
-      else if(it.name==='Gross Yield') tipText='(Rent + extra) ÷ price before opex. Healthy: ≥ 8%.';
-      else if(it.name==='Cash Flow') tipText='Monthly NOI − P&I. Healthy: ≥ AED 0/month.';
+      if(it.name==='ROI (5y)') tipText='ROI (5y) is total return on your initial cash over 5 years (cash flow + principal + appreciation). Healthy: ≥ 60%. Higher ROI means faster payback of equity.';
+      else if(it.name==='Net Yield') tipText='Net Yield = NOI ÷ price after vacancy and opex. Healthy: ≥ 6%. Higher net yield generally indicates better efficiency and buffer for costs.';
+      else if(it.name==='DSCR') tipText='DSCR = NOI ÷ monthly P&I. Healthy: ≥ 1.20× (1.0–1.2 is tight). Higher DSCR means more cushion to cover the mortgage in down months.';
+      else if(it.name==='Gross Yield') tipText='Gross Yield = (Rent + additional income) ÷ price before opex. Healthy: ≥ 8%. Use alongside Net Yield to spot high fee loads.';
+      else if(it.name==='Cash Flow') tipText='Cash Flow (mo) = NOI − P&I per month. Healthy: ≥ AED 0/mo. Positive cash flow improves resilience and liquidity.';
+      else if(it.name==='IRR (5y)') tipText='IRR (5y) is the annualized return including timing of cash flows and exit. Healthy: ≥ 12%. Useful to compare this deal vs. alternatives with different timelines.';
       tipBox.textContent = tipText;
       tip.appendChild(tipBox);
       li.appendChild(tip);
@@ -643,11 +658,12 @@ function calculate(){
         const tip=document.createElement('span'); tip.className='info'; tip.textContent='i';
         const tipBox=document.createElement('span'); tipBox.className='itip';
         let tipText='Metric info';
-        if(it.name==='ROI (5y)') tipText='Total 5‑year return on equity. Healthy: ≥ 60% (Dubai benchmark).';
-        else if(it.name==='Net Yield') tipText='NOI ÷ price (after vacancy & opex). Healthy: ≥ 6%.';
-        else if(it.name==='DSCR') tipText='NOI ÷ monthly P&I. Healthy: ≥ 1.20× (borderline 1.0–1.2).';
-        else if(it.name==='Gross Yield') tipText='(Rent + extra) ÷ price before opex. Healthy: ≥ 8%.';
-        else if(it.name==='Cash Flow') tipText='Monthly NOI − P&I. Healthy: ≥ AED 0/month.';
+        if(it.name==='ROI (5y)') tipText='ROI (5y) is total return on your initial cash over 5 years (cash flow + principal + appreciation). Healthy: ≥ 60%. Higher ROI means faster payback of equity.';
+        else if(it.name==='Net Yield') tipText='Net Yield = NOI ÷ price after vacancy and opex. Healthy: ≥ 6%. Higher net yield generally indicates better efficiency and buffer for costs.';
+        else if(it.name==='DSCR') tipText='DSCR = NOI ÷ monthly P&I. Healthy: ≥ 1.20× (1.0–1.2 is tight). Higher DSCR means more cushion to cover the mortgage in down months.';
+        else if(it.name==='Gross Yield') tipText='Gross Yield = (Rent + additional income) ÷ price before opex. Healthy: ≥ 8%. Use alongside Net Yield to spot high fee loads.';
+        else if(it.name==='Cash Flow') tipText='Cash Flow (mo) = NOI − P&I per month. Healthy: ≥ AED 0/mo. Positive cash flow improves resilience and liquidity.';
+        else if(it.name==='IRR (5y)') tipText='IRR (5y) is the annualized return including timing of cash flows and exit. Healthy: ≥ 12%. Useful to compare this deal vs. alternatives with different timelines.';
         tipBox.textContent = tipText;
         tip.appendChild(tipBox);
         li.appendChild(tip);
@@ -733,12 +749,12 @@ function calculate(){
       tip.textContent = healthyText;
     }
   };
-  setState('kMonthly', monthlyCashFlow>0?'good':monthlyCashFlow>-200?'warn':'bad', 'Healthy: ≥ AED 0/month cash flow (buffer ≥ AED 500 preferred).');
-  setState('kCoC', cashOnCash>=8?'good':cashOnCash>=5?'warn':'bad', 'Healthy: ≥ 8% CoC (Dubai typical 5–10%).');
-  setState('kROI', roi5>=60?'good':roi5>=40?'warn':'bad', 'Assumptions: 3% appreciation, 0% rent growth, +2% expenses/yr. Healthy: ≥ 60% total over 5 years.');
-  setState('kNet', netYield>=6?'good':netYield>=4?'warn':'bad', 'Healthy: ≥ 6% net yield (Dubai avg 3–6%).');
-  setState('kGross', grossYield>=8?'good':grossYield>=6?'warn':'bad', 'Healthy: ≥ 8% gross yield (Dubai avg 4–8%).');
-  setState('kDSCR', dscr>=1.2?'good':dscr>=1.0?'warn':'bad', 'Healthy: ≥ 1.2 DSCR. Borderline: 1.0–1.2.');
+  setState('kMonthly', monthlyCashFlow>0?'good':monthlyCashFlow>-200?'warn':'bad', 'Cash Flow (mo): NOI − P&I. Healthy: ≥ AED 0/mo. Betekenis: positieve cashflow geeft meer buffer en liquiditeit.');
+  setState('kCoC', cashOnCash>=8?'good':cashOnCash>=5?'warn':'bad', 'Cash‑on‑Cash: jaarlijkse cashflow ÷ initiële inleg. Healthy: ≥ 8% (typisch 5–10%). Betekenis: direct rendement op je contante inleg.');
+  setState('kROI', roi5>=60?'good':roi5>=40?'warn':'bad', 'ROI (5y): totaal over 5 jaar (cashflow + aflossing + waardestijging). Healthy: ≥ 60%. Betekenis: snellere terugverdientijd van je eigen vermogen.');
+  setState('kNet', netYield>=6?'good':netYield>=4?'warn':'bad', 'Net Yield: NOI ÷ prijs (na vacancy & opex). Healthy: ≥ 6%. Betekenis: efficiëntie na kosten en buffer tegen tegenvallers.');
+  setState('kGross', grossYield>=8?'good':grossYield>=6?'warn':'bad', 'Gross Yield: (huur + extra) ÷ prijs vóór opex. Healthy: ≥ 8%. Betekenis: ruwe opbrengst; vergelijk met Net om fee‑druk te zien.');
+  setState('kDSCR', dscr>=1.2?'good':dscr>=1.0?'warn':'bad', 'DSCR: NOI ÷ hypotheek P&I. Healthy: ≥ 1.20× (1.0–1.2 krap). Betekenis: hogere DSCR = meer betaalbaarheidscushion.');
 
   // AI text (simple)
   const recs=[];
@@ -1051,6 +1067,45 @@ window.addEventListener('DOMContentLoaded', ()=>{
       if(consent) consent.checked=false;
     });
   })();
+  // Contact form → open mail client with prefilled content
+  (function(){
+    const form=document.getElementById('contactForm');
+    if(!form || form._bound) return; form._bound=true;
+    const first=document.getElementById('cFirst');
+    const last=document.getElementById('cLast');
+    const email=document.getElementById('cEmail');
+    const phone=document.getElementById('cPhone');
+    const msg=document.getElementById('cMsg');
+    const terms=document.getElementById('cTerms');
+    const out=document.getElementById('contactMsg');
+    const emailOk=(v)=>/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v||'');
+    form.addEventListener('submit',(e)=>{
+      e.preventDefault();
+      const fn=(first&&first.value||'').trim();
+      const ln=(last&&last.value||'').trim();
+      const em=(email&&email.value||'').trim();
+      const ph=(phone&&phone.value||'').trim();
+      const body=(msg&&msg.value||'').trim();
+      const okTerms = terms && terms.checked;
+      if(!fn || !ln || !ph || !emailOk(em) || !body || !okTerms){
+        if(out){ out.className='nl-msg err'; out.textContent='Please complete all required fields and accept the terms.'; }
+        return;
+      }
+      const subject=encodeURIComponent('Contact request - Smart Property Analyzer');
+      const lines=[
+        `First name: ${fn}`,
+        `Last name: ${ln}`,
+        `Email: ${em}`,
+        (ph?`Phone: ${ph}`:''),
+        '',
+        body
+      ].join('\n');
+      const mailto=`mailto:abdel.nadi.20201@gmail.com?subject=${subject}&body=${encodeURIComponent(lines)}`;
+      try{ window.location.href=mailto; }catch(_){}
+      if(out){ out.className='nl-msg ok'; out.textContent='Thanks! Your email app should open now.'; }
+      try{ form.reset(); }catch(_){}
+    });
+  })();
   // Testimonials horizontal scroller
   (function(){
     const strip=document.getElementById('tstrip');
@@ -1216,21 +1271,61 @@ window.addEventListener('DOMContentLoaded', ()=>{
       const bestLine = best ? `${best.name} • Grade ${best.grade||'-'} (${Math.round(best.gradeScore||0)}/100)` : '';
       const cfLine = bestCF ? `${bestCF.name} • ${fmtAED(bestCF.cashFlow)}/mo` : '';
       const riskLine = risks.length ? `${riskNames} • check DSCR and Net` : '';
-      el.innerHTML = `
-        <div class="cmp-lines">
-          ${best ? `<div class="cmp-line good"><span class="k">Best overall</span><span class="v">${bestLine}</span></div>`:''}
-          ${bestCF ? `<div class="cmp-line good"><span class="k">Best cash flow</span><span class="v">${cfLine}</span></div>`:''}
-          ${risks.length ? `<div class="cmp-line warn"><span class="k">Risk flags</span><span class="v">${riskLine}</span><span class="sub">DSCR ≥ 1.20 • Net ≥ 6%</span></div>`:''}
-        </div>
-      `;
+      // Classify "best overall" more critically vs. targets
+      const meetsTargets = (d)=>{
+        if(!d) return false;
+        const okNet = isFinite(d.netYield) && d.netYield>=6;
+        const okDSCR = isFinite(d.dscr) && d.dscr>=1.2;
+        const okIRR = isFinite(d.irr5) && d.irr5>=12;
+        const okROI = isFinite(d.roi5) && d.roi5>=60;
+        const okGross = isFinite(d.grossYield) && d.grossYield>=8;
+        const okCF = isFinite(d.cashFlow) && d.cashFlow>=0;
+        return okNet && okDSCR && okIRR && okROI && okGross && okCF;
+      };
+      const classifyOverall = (d)=>{
+        if(!d) return {cls:'warn', note:''};
+        const deficits=[];
+        if(!(isFinite(d.netYield) && d.netYield>=6)) deficits.push('Net<6%');
+        if(!(isFinite(d.dscr) && d.dscr>=1.2)) deficits.push('DSCR<1.20x');
+        if(!(isFinite(d.irr5) && d.irr5>=12)) deficits.push('IRR<12%');
+        if(!(isFinite(d.roi5) && d.roi5>=60)) deficits.push('ROI<60%');
+        if(!(isFinite(d.grossYield) && d.grossYield>=8)) deficits.push('Gross<8%');
+        if(!(isFinite(d.cashFlow) && d.cashFlow>=0)) deficits.push('CF<0');
+        if(deficits.length===0) return {cls:'good', note:''};
+        if(deficits.length<=2) return {cls:'warn', note:`Below targets (${deficits.join(', ')})`};
+        return {cls:'bad', note:`Below targets (${deficits.slice(0,3).join(', ')}…)`};
+      };
+      const overall = classifyOverall(best);
+      const bestCFCls = (bestCF && isFinite(bestCF.cashFlow) && bestCF.cashFlow>=0) ? 'good' : (bestCF && isFinite(bestCF.cashFlow) && bestCF.cashFlow>=-200 ? 'warn' : 'bad');
+      const overallLine = best ? `
+        <div class="cmp-line ${overall.cls}">
+          <span class="k">Best overall</span>
+          <span class="v">${bestLine}</span>
+          ${overall.note ? `<span class="sub">${overall.note}</span>`:''}
+        </div>` : '';
+      const cfLineHtml = bestCF ? `
+        <div class="cmp-line ${bestCFCls}">
+          <span class="k">Best cash flow</span>
+          <span class="v">${cfLine}</span>
+          ${bestCFCls!=='good' ? `<span class="sub">Target: ≥ AED 0/mo</span>`:''}
+        </div>` : '';
+      const riskLineHtml = risks.length ? `
+        <div class="cmp-line warn">
+          <span class="k">Risk flags</span>
+          <span class="v">${riskLine}</span>
+          <span class="sub">DSCR ≥ 1.20 • Net ≥ 6%</span>
+        </div>` : '';
+      el.innerHTML = `<div class="cmp-lines">${overallLine}${cfLineHtml}${riskLineHtml}</div>`;
     };
     const bind=()=>{
-      const save=byId('saveDealBtn'); const clear=byId('clearComparisonBtn');
-      if(save && !save._bound){ save._bound=true; save.addEventListener('click', ()=>{
+      const save=byId('saveDealBtn'); const save2=byId('saveDealBtn2'); const clear=byId('clearComparisonBtn');
+      const doSave=()=>{
         const cur=window._currentDealComparison; if(!cur) return;
         const list=getList();
         const next=[...list, cur].slice(-3); setList(next); render();
-      });}
+      };
+      if(save && !save._bound){ save._bound=true; save.addEventListener('click', doSave);}
+      if(save2 && !save2._bound){ save2._bound=true; save2.addEventListener('click', doSave);}
       if(clear && !clear._bound){ clear._bound=true; clear.addEventListener('click', ()=>{ setList([]); render(); });}
       render();
     };
@@ -1290,8 +1385,10 @@ window.addEventListener('DOMContentLoaded', ()=>{
   chipSet('priceChips','propertyValue');
   chipSet('rentChips','monthlyRent');
   bindVal('additionalIncome','additionalIncomeVal',(v)=>'AED '+parseInt(v).toLocaleString('en-US'));
+  // sync additional income slider <-> number
+  syncPair('additionalIncome','additionalIncomeNum', (v)=>{ const out=$('additionalIncomeVal'); if(out) out.textContent='AED '+parseInt(v||0).toLocaleString('en-US'); });
   // vacancy, maintenance, management sync number <-> slider (with microcopy)
-  syncPair('vacancyRate','vacancyRateNum', (v)=>{ const out=$('vacancyRateVal'); if(out) out.textContent=`${parseFloat(v).toFixed(0)}% • typical 2–8%`; });
+  syncPair('vacancyRate','vacancyRateNum', (v)=>{ const out=$('vacancyRateVal'); if(out) out.textContent=`${parseFloat(v).toFixed(0)}% / year • typical 2–8%`; });
   syncPair('maintenanceRate','maintenanceRateNum', (v)=>{ const out=$('maintenanceRateVal'); if(out) out.textContent=`${parseFloat(v).toFixed(0)}% • typical 5–10%`; });
   syncPair('managementFee','managementFeeNum', (v)=>{ const out=$('managementFeeVal'); if(out) out.textContent=`${parseFloat(v).toFixed(0)}% • typical 5–8%`; });
   bindVal('baseFee','baseFeeVal',(v)=>'AED '+parseInt(v).toLocaleString('en-US'));

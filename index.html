@@ -40,7 +40,7 @@
     <div class="wrap hero-grid">
       <div class="hero-copy">
         <h1>Smart Property Analyzer - Dubai</h1>
-        <p>Purpose‑built for Dubai buy‑to‑let (rental) analysis</p>
+        <p>Purpose‑built for Dubai buy‑to‑let (rental) analysis — incl. IRR (5y)</p>
         <div class="promo-card promo-hero">
           <div class="promo-icon-lg">✓</div>
           <h3 class="promo-title">Start in 4 steps</h3>
@@ -227,12 +227,12 @@
                 </div>
                 <div class="hint"><span id="interestRateVal">4.5%</span></div>
               </label>
-              <label class="switch"><span>Include DLD Fee (4%)</span><span class="sw"><input type="checkbox" id="dldFeeEnabled" checked /><i></i></span></label>
-              <label>Agent Fee (%)
+              <label class="switch"><span>Include DLD Fee (4%)</span> <span class="info">i<span class="itip">DLD transfer fee (4%) is a one‑time government charge on purchase.</span></span><span class="sw"><input type="checkbox" id="dldFeeEnabled" checked /><i></i></span></label>
+              <label>Agent Fee (%) <span class="info">i<span class="itip">One‑time broker commission paid at purchase (typically ~2%).</span></span>
                 <input type="range" id="agentFee" min="0" max="5" step="0.5" value="2" />
                 <div class="hint"><span id="agentFeeVal">2%</span></div>
               </label>
-              <label>Additional Costs (AED)
+              <label>Additional Costs (AED) <span class="info">i<span class="itip">One‑time purchase costs in Dubai (excl. agent fee). Examples: mortgage processing/arrangement fee, valuation fee, trustee office/admin, developer NOC, conveyancing, utility connection/deposits (e.g., DEWA), POA or translations/attestations if needed.</span></span>
                 <input type="number" id="additionalCosts" min="0" step="100" value="0" /><span class="u-inline">AED</span>
                 <div class="hint"><span id="additionalCostsVal">AED 0</span></div>
               </label>
@@ -243,7 +243,7 @@
             </div>
 
             <div class="wstep" id="step-3">
-              <h3 class="step-title">Step 3 · Revenue</h3>
+              <h3 class="step-title">Step 3 · Revenue <span class="info">i<span class="itip">Revenue inputs are monthly (rent and additional income, e.g., parking space, storage, or furnished premium). Vacancy rate is annual and applied pro‑rata to monthly income.</span></span></h3>
               <label>Monthly Rent (AED)
                 <div class="pair has-unit">
                   <input type="range" id="monthlyRent" min="2000" max="50000" step="100" value="8500" />
@@ -258,11 +258,15 @@
                 </div>
                 <div class="hint"><span id="monthlyRentVal">AED 8,500</span></div>
               </label>
-              <label>Additional Income (AED)
-                <input type="range" id="additionalIncome" min="0" max="5000" step="50" value="0" />
+              <label>Additional Income (AED / mo) <span class="info">i<span class="itip">Other monthly income like a parking space, storage unit, or furniture premium. One‑time fees are excluded.</span></span>
+                <div class="pair has-unit">
+                  <input type="range" id="additionalIncome" min="0" max="5000" step="50" value="0" />
+                  <input type="number" id="additionalIncomeNum" min="0" step="25" value="0" inputmode="numeric" />
+                  <span class="u">AED</span>
+                </div>
                 <div class="hint"><span id="additionalIncomeVal">AED 0</span></div>
               </label>
-              <label>Vacancy Rate (%)
+              <label>Vacancy Rate (% / year) <span class="info">i<span class="itip">Annual vacancy assumption (e.g., 8% ≈ ~1 month per year). We apply it pro‑rata to monthly income.</span></span>
                 <div class="pair has-unit">
                   <input type="range" id="vacancyRate" min="0" max="30" step="1" value="8" />
                   <input type="number" id="vacancyRateNum" min="0" max="100" step="1" value="8" inputmode="decimal" />
@@ -278,7 +282,7 @@
 
             <div class="wstep" id="step-4">
               <h3 class="step-title">Step 4 · Expenses</h3>
-              <label>Maintenance (% of rent)
+              <label>Maintenance (% of rent) <span class="info">i<span class="itip">Typical 5–10% of effective income. Covers routine repairs, AC servicing, and minor wear &amp; tear. Newer units → lower end; older properties → higher end.</span></span>
                 <div class="pair has-unit">
                   <input type="range" id="maintenanceRate" min="0" max="10" step="0.5" value="2" />
                   <input type="number" id="maintenanceRateNum" min="0" max="100" step="0.5" value="2" inputmode="decimal" />
@@ -286,7 +290,7 @@
                 </div>
                 <div class="hint"><span id="maintenanceRateVal">2%</span></div>
               </label>
-              <label>Management Fee (% of rent)
+              <label>Management Fee (% of rent) <span class="info">i<span class="itip">Typical 5–8% of rent. Covers property management: tenant communication, leasing/marketing, maintenance coordination, rent collection. Self‑manage → 0%.</span></span>
                 <div class="pair has-unit">
                   <input type="range" id="managementFee" min="0" max="15" step="0.5" value="8" />
                   <input type="number" id="managementFeeNum" min="0" max="100" step="0.5" value="8" inputmode="decimal" />
@@ -294,11 +298,11 @@
                 </div>
                 <div class="hint"><span id="managementFeeVal">8%</span></div>
               </label>
-              <label>Annual Insurance (AED)
+              <label>Annual Insurance (AED) <span class="info">i<span class="itip">Yearly building/contents/landlord insurance. Apartments often ~AED 500–2,000; villas higher depending on size and coverage.</span></span>
                 <input type="range" id="annualInsurance" min="0" max="5000" step="50" value="1500" />
                 <div class="hint"><span id="annualInsuranceVal">AED 1,500</span></div>
               </label>
-              <label>Other Expenses (AED/year)
+              <label>Other Expenses (AED/year) <span class="info">i<span class="itip">Annual fixed costs not captured elsewhere. Examples: service/association charges, chiller subscription (if landlord‑paid), annual inspections, small admin/subscriptions. Enter as AED per year.</span></span>
                 <input type="range" id="otherExpenses" min="0" max="5000" step="50" value="200" />
                 <div class="hint"><span id="otherExpensesVal">AED 200</span></div>
               </label>
@@ -384,8 +388,8 @@
         </ul>
       </div>
       </div>
-      <div class="center save-inline">
-        <button class="btn ghost" id="saveDealBtn" style="display:none;">Save for comparison</button>
+      <div class="comparison-actions save-float">
+        <button class="btn ghost sm" id="saveDealBtn" style="display:none;">Save for comparison</button>
       </div>
     </details>
     <div class="section-sep" aria-hidden="true"></div>
@@ -531,8 +535,9 @@
             </tbody>
           </table>
           
-          <div class="comparison-actions">
-            <button class="btn ghost" id="clearComparisonBtn">Clear all deals</button>
+          <div class="comparison-actions comp-float">
+            <button class="btn ghost sm" id="saveDealBtn2" style="display:none;">Save for comparison</button>
+            <button class="btn ghost sm" id="clearComparisonBtn">Clear all deals</button>
           </div>
         </div>
         <div id="cmpSummary" class="cmp-summary"></div>
@@ -540,7 +545,6 @@
     </details>
 
     <div class="center" style="margin-top:14px">
-      <button class="btn download" id="downloadBtn">Report export (soon)</button>
       <div class="share-dd" id="shareDD">
         <button class="btn ghost" id="shareToggle" aria-haspopup="true" aria-expanded="false">Share ▾</button>
         <div class="share-menu" id="shareMenu" role="menu" aria-hidden="true">
