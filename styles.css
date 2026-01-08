@@ -711,12 +711,15 @@ h1,h2,h3{font-family:var(--font-head);font-weight:800;color:#0b1e47}
 
 /* Cookie banner */
 .cookie-overlay{position:fixed;inset:0;background:rgba(11,17,35,.65);z-index:9000;display:flex;align-items:flex-end;justify-content:center;padding:10px}
-.cookie-box{background:#fff;border:1px solid #e5e7eb;border-radius:12px;max-width:980px;width:96%;box-shadow:0 14px 36px rgba(0,0,0,.25);padding:12px}
+.cookie-box{background:#fff;border:1px solid #e5e7eb;border-radius:12px;max-width:980px;width:96%;box-shadow:0 14px 36px rgba(0,0,0,.25);padding:12px;font-size:13px;line-height:1.35}
 .cookie-head{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.cookie-head h3{font-size:1rem;margin:0}
 .cookie-body{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:8px}
+.cookie-body p{font-size:.92rem}
 .cookie-opt{display:flex;align-items:center;gap:8px}
+.cookie-opt span{font-size:.92em}
 .cookie-actions{display:flex;gap:8px;justify-content:flex-end;margin-top:10px}
-.cookie-actions .btn{min-width:120px}
+.cookie-actions .btn{min-width:110px;font-size:.9rem;padding:.55rem .8rem}
 .cookie-actions .btn.ghost{background:#f1f5ff}
 @media (max-width:700px){
   .cookie-body{grid-template-columns:1fr}
