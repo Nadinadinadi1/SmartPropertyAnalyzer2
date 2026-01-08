@@ -950,432 +950,10 @@ window.addEventListener('DOMContentLoaded', ()=>{
   const analyze=$("analyzeBtn");
   if(analyze) analyze.addEventListener('click', ()=>{ calculate(); });
 
-  // remove legacy print handler; PDF export added below
-  // Professional PDF export using jsPDF + autotable
   const proBtn=document.getElementById('downloadBtn');
   if(proBtn){
-    proBtn.addEventListener('click', async ()=>{
-      // Try server-side pdf-lib generator first. On failure, fall back to legacy jsPDF.
-      try {
-        // Ensure latest calculations
-        try { calculate(); } catch(_e){}
-        // Recompute inputs similarly to legacy block
-        const getVal = (id)=>{ const el=document.getElementById(id); return el? el.value: '' };
-        const getNum=(id)=>{ const v=parseFloat(getVal(id)); return isFinite(v)? v:0 };
-        const pv = getNum('propertyValue');
-        const downPct = getNum('downPayment');
-        const agentFeePct = getNum('agentFee');
-        const years = getNum('loanTerm');
-        const ratePct = getNum('interestRate');
-        const dldFeeEnabled = (document.getElementById('dldFeeEnabled')||{}).checked;
-        const additionalCosts = getNum('additionalCosts');
-        const rent = getNum('monthlyRent');
-        const addInc = getNum('additionalIncome');
-        const vacancyRate = getNum('vacancyRate');
-        const maintRate = getNum('maintenanceRate');
-        const mgmtRate  = getNum('managementFee');
-        const baseFee   = getNum('baseFee');
-        const annualInsurance = getNum('annualInsurance');
-        const otherExpenses  = getNum('otherExpenses');
-        const downPayment = pv * (downPct/100);
-        const agentFee = pv * (agentFeePct/100);
-        const dldFee = dldFeeEnabled ? pv * 0.04 : 0;
-        const loanAmount = Math.max(0, pv - downPayment);
-        const r = ratePct/100/12, n=years*12;
-        const monthlyPayment = (loanAmount>0 && n>0) ? (r===0 ? loanAmount/n : loanAmount * r / (1 - Math.pow(1+r, -n))) : 0;
-        const totalInitial = downPayment + agentFee + dldFee + additionalCosts;
-        const grossMonthlyIncome = rent + addInc;
-        const effectiveIncome = grossMonthlyIncome * (1 - vacancyRate/100);
-        const monthlyMaint = effectiveIncome * (maintRate/100);
-        const monthlyMgmt  = effectiveIncome * (mgmtRate/100);
-        const monthlyOpex  = monthlyMaint + monthlyMgmt + baseFee + (annualInsurance/12) + (otherExpenses/12);
-        const monthlyCF    = effectiveIncome - monthlyOpex - monthlyPayment;
-        const annualRentGross = (rent + addInc) * 12;
-        const annualEffective = effectiveIncome * 12;
-        const annualOpex = monthlyMaint*12 + monthlyMgmt*12 + baseFee*12 + annualInsurance + otherExpenses;
-        const NOI = annualEffective - annualOpex;
-        const grossYield = pv>0 ? (annualRentGross/pv)*100 : undefined;
-        const netYield   = pv>0 ? (NOI/pv)*100 : undefined;
-        const noiMonthly = effectiveIncome - (monthlyMaint + monthlyMgmt + baseFee + (annualInsurance/12) + (otherExpenses/12));
-        const dscr = monthlyPayment>0 ? (noiMonthly / monthlyPayment) : undefined;
-        const remaining5 = (function(){
-          if(loanAmount<=0 || n<=0) return 0;
-          if(r===0) return Math.max(0, loanAmount*(1-60/n));
-          const pmt = monthlyPayment;
-          const bal = loanAmount * Math.pow(1+r, 60) - pmt * (Math.pow(1+r, 60)-1)/r;
-          return Math.max(0, bal);
-        })();
-        const principalPaid5 = Math.max(0, loanAmount - remaining5);
-        const appreciation = 3;
-        const futureValue = pv * Math.pow(1 + appreciation/100, 5);
-        const appreciationGain = Math.max(0, futureValue - pv);
-        const totalGain5 = (monthlyCF*12)*5 + principalPaid5 + appreciationGain;
-        const roi5 = downPayment>0 ? (totalGain5 / downPayment) * 100 : undefined;
-        const compareList = (function(){
-          try {
-            const s = localStorage.getItem('spa_deal_compare');
-            if(!s) return undefined;
-            const arr = JSON.parse(s);
-            if(!Array.isArray(arr)) return undefined;
-            return arr.map((d)=>({
-              name: d?.name,
-              gradeLetter: d?.grade,
-              score0100: typeof d?.gradeScore==='number'? d.gradeScore: undefined,
-              priceAed: d?.price,
-              cashFlowMonthlyAed: d?.cashFlow,
-              dscr: d?.dscr,
-              netYieldPct: d?.netYield,
-              irr5yPct: d?.irr5
-            }));
-          } catch { return undefined; }
-        })();
-        const payload = {
-          timestamp: new Date().toISOString(),
-          property: {
-            title: (document.getElementById('projectName')?.value || ''),
-            type: document.getElementById('propertyType')?.value || '',
-            beds: parseFloat(document.getElementById('bedrooms')?.value || '0') || undefined,
-            baths: parseFloat(document.getElementById('bathrooms')?.value || '0') || undefined,
-            sizeSqft: parseFloat(document.getElementById('size')?.value || '0') || undefined,
-            status: (document.getElementById('status')?.value || ''),
-            community: (document.getElementById('community')?.value || ''),
-          },
-          pricing: { propertyValueAed: pv || undefined },
-          financing: {
-            downPaymentPct: downPct || undefined,
-            equityAed: totalInitial || undefined,
-            loanAed: loanAmount || undefined,
-            loanTermYears: years || undefined,
-            interestRatePct: ratePct || undefined,
-            monthlyPIAed: monthlyPayment || undefined
-          },
-          transactionCosts: {
-            agentFeePct: agentFeePct || undefined,
-            dldFeePct: dldFeeEnabled ? 4 : undefined,
-            additionalCostsAed: additionalCosts || undefined,
-            totalInvestmentAed: totalInitial || undefined
-          },
-          income: { monthlyRentAed: rent || undefined, additionalIncomeAed: addInc || undefined },
-          opexMonthly: {
-            managementFeeAed: monthlyMgmt || undefined,
-            maintenanceAed: monthlyMaint || undefined,
-            insuranceOtherAed: (annualInsurance/12 + otherExpenses/12) || undefined
-          },
-          assumptions: { vacancyRatePct: vacancyRate || undefined },
-          results: {
-            dscr, netYieldPct: netYield, grossYieldPct: grossYield,
-            netCashFlowMonthlyAed: monthlyCF, roi5yPct: roi5,
-            irr5yPct: (typeof window._irr5 === 'number' ? window._irr5 : undefined),
-            gradeLetter: window._lastGradeInfo?.grade,
-            score0100: Math.round(window._lastGradeInfo?.score || 0)
-          },
-          comparisons: compareList
-        };
-
-        const res = await fetch('/api/generate-pdf', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(payload)
-        });
-        if (!res.ok) throw new Error(`PDF API ${res.status}`);
-        const buf = await res.arrayBuffer();
-        const blob = new Blob([buf], { type: 'application/pdf' });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `investor-memo-${Date.now()}.pdf`;
-        document.body.appendChild(a);
-        a.click();
-        a.remove();
-        URL.revokeObjectURL(url);
-        return; // success, skip legacy fallback
-      } catch (e) {
-        console.warn('Server PDF failed, trying browser pdf-lib fallback…', e);
-        try {
-          const mod = await import('./pdf/investorMemo.browser.js');
-          const bytes = await mod.generateInvestorPdfBrowser(payload);
-          const blob = new Blob([bytes], { type: 'application/pdf' });
-          const url = URL.createObjectURL(blob);
-          const a = document.createElement('a');
-          a.href = url;
-          a.download = `investor-memo-${Date.now()}.pdf`;
-          document.body.appendChild(a);
-          a.click();
-          a.remove();
-          URL.revokeObjectURL(url);
-          return;
-        } catch(e2){
-          console.warn('Browser pdf-lib fallback failed, switching to legacy jsPDF…', e2);
-        }
-      }
-      try{
-        const { jsPDF } = window.jspdf || {};
-        if(!jsPDF || !window.jspdf || !window.jspdf.jsPDF){
-          // fallback to print if jsPDF not loaded
-          window.print();
-          return;
-        }
-        const doc=new jsPDF();
-        const pageWidth=doc.internal.pageSize.width;
-        const pageHeight=doc.internal.pageSize.height;
-
-        // Header
-        doc.setFillColor(31,41,55); doc.rect(0,0,pageWidth,25,'F');
-        doc.setTextColor(255,255,255); doc.setFontSize(16); doc.setFont('helvetica','bold');
-        doc.text('Smart Property Analyzer',20,15);
-        doc.setFontSize(10); doc.setFont('helvetica','normal'); doc.text('Dubai Buy-to-Let Analysis',20,20);
-        const ts = new Date().toLocaleString(); doc.text(ts, pageWidth-20, 20, { align:'right' });
-        doc.setTextColor(0,0,0);
-
-        // Compute metrics locally for PDF
-        const getVal = (id)=>{ const el=document.getElementById(id); return el? el.value: '' };
-        const getNum=(id)=>{ const v=parseFloat(getVal(id)); return isFinite(v)? v:0 };
-        const pv = getNum('propertyValue');
-        const downPct = getNum('downPayment');
-        const agentFeePct = getNum('agentFee');
-        const years = getNum('loanTerm');
-        const ratePct = getNum('interestRate');
-        const dldFeeEnabled = (document.getElementById('dldFeeEnabled')||{}).checked;
-        const additionalCosts = getNum('additionalCosts');
-        const rent = getNum('monthlyRent');
-        const addInc = getNum('additionalIncome');
-        const vacancyRate = getNum('vacancyRate');
-        const maintRate = getNum('maintenanceRate');
-        const mgmtRate = getNum('managementFee');
-        const baseFee = getNum('baseFee');
-        const annualInsurance = getNum('annualInsurance');
-        const otherExpenses = getNum('otherExpenses');
-        const downPayment = pv * (downPct/100);
-        const agentFee = pv * (agentFeePct/100);
-        const dldFee = dldFeeEnabled ? pv * 0.04 : 0;
-        const loanAmount = Math.max(0, pv - downPayment);
-        const totalInitial = downPayment + agentFee + dldFee + additionalCosts;
-        const r = ratePct/100/12, n = years*12;
-        const monthlyPayment = (loanAmount>0 && n>0) ? (r===0 ? loanAmount/n : loanAmount * r / (1 - Math.pow(1+r, -n))) : 0;
-        const grossMonthlyIncome = rent + addInc;
-        const effectiveIncome = grossMonthlyIncome * (1 - vacancyRate/100);
-        const monthlyMaint = effectiveIncome * (maintRate/100);
-        const monthlyMgmt  = effectiveIncome * (mgmtRate/100);
-        const monthlyOpex  = monthlyMaint + monthlyMgmt + baseFee + (annualInsurance/12) + (otherExpenses/12);
-        const monthlyCashFlow = effectiveIncome - monthlyOpex - monthlyPayment;
-        const annualCashFlow = monthlyCashFlow * 12;
-        const annualRentGross = (rent + addInc) * 12;
-        const annualEffective = effectiveIncome * 12;
-        const annualOpex = monthlyMaint*12 + monthlyMgmt*12 + baseFee*12 + annualInsurance + otherExpenses;
-        const NOI = annualEffective - annualOpex;
-        const grossYield = pv>0 ? (annualRentGross/pv)*100 : NaN;
-        const netYield   = pv>0 ? (NOI/pv)*100 : NaN;
-        const noiMonthly = effectiveIncome - (monthlyMaint + monthlyMgmt + baseFee + (annualInsurance/12) + (otherExpenses/12));
-        const dscr = monthlyPayment>0 ? (noiMonthly / monthlyPayment) : NaN;
-        // 5y ROI
-        const remaining5 = (function(){
-          if(loanAmount<=0 || n<=0) return 0;
-          if(r===0) return Math.max(0, loanAmount*(1-60/n));
-          const pmt = monthlyPayment;
-          const bal = loanAmount * Math.pow(1+r, 60) - pmt * (Math.pow(1+r, 60)-1)/r;
-  return Math.max(0, bal);
-        })();
-        const principalPaid5 = Math.max(0, loanAmount - remaining5);
-        const appreciation = 3;
-        const futureValue = pv * Math.pow(1 + appreciation/100, 5);
-        const appreciationGain = Math.max(0, futureValue - pv);
-        const totalGain5 = annualCashFlow*5 + principalPaid5 + appreciationGain;
-        const roi5 = downPayment>0 ? (totalGain5 / downPayment) * 100 : NaN;
-        const netCashOutlay5 = totalInitial + (monthlyOpex + monthlyPayment - effectiveIncome) * 60;
-        // DSCR targets
-        const varPct=(maintRate+mgmtRate)/100;
-        const fixed=(baseFee + (annualInsurance/12) + (otherExpenses/12));
-        const target=1.2;
-        const effNeeded = (target*monthlyPayment + fixed) / Math.max(0.0001, (1 - varPct));
-        const grossNeeded = effNeeded / Math.max(0.0001, (1 - vacancyRate/100));
-        const rentNeeded = Math.max(0, Math.round(grossNeeded - addInc));
-        let priceTarget=0;
-        if(r>0 && n>0){
-          const pmtTarget = (noiMonthly)/target;
-          const loanTarget = (pmtTarget>0)? pmtTarget * (1 - Math.pow(1+r, -n)) / r : 0;
-          priceTarget = (1 - (downPct/100))>0 ? loanTarget / (1 - (downPct/100)) : 0;
-        }
-
-        const propertyData = {
-          projectName: getVal('projectName'),
-          propertyType: getVal('propertyType'),
-          community: getVal('community'),
-          bedrooms: getVal('bedrooms'),
-          bathrooms: getVal('bathrooms'),
-          size: getVal('size'),
-          completionStatus: (document.getElementById('status')||{}).value || 'ready'
-        };
-
-        let y=40;
-        doc.setFont('helvetica','bold'); doc.setFontSize(14); doc.text('EXECUTIVE SUMMARY',20,y); y+=10;
-        doc.setDrawColor(59,130,246); doc.setLineWidth(0.5); doc.roundedRect(20,y,pageWidth-40,36,3,3);
-        doc.setFont('helvetica','normal'); doc.setFontSize(10);
-        doc.text(`Project: ${propertyData.projectName||'—'}`,25,y+8);
-        doc.text(`Type: ${propertyData.propertyType||'—'} | ${propertyData.bedrooms||'-'} Bed ${propertyData.bathrooms||'-'} Bath`,25,y+16);
-        doc.text(`Community: ${propertyData.community||'—'}`,25,y+22);
-        doc.text(`Size: ${propertyData.size||'-'} sqft | Status: ${propertyData.completionStatus}`,25,y+28);
-        doc.text(`Property Value: ${formatCurrencyAED(+document.getElementById('propertyValue')?.value||0)}`,25,y+34);
-        y+=48;
-
-        // Grade box
-        doc.setFont('helvetica','bold'); doc.setFontSize(14); doc.text('INVESTMENT GRADE',20,y); y+=10;
-        const g = computeGrade(monthlyCashFlow, netYield, grossYield, roi5, dscr);
-        const gc = g.grade[0]==='A'?[16,185,129]: g.grade[0]==='B'?[34,197,94]: g.grade[0]==='C'?[245,158,11]:[239,68,68];
-        doc.setDrawColor(232,236,244); doc.setFillColor(245,247,255); doc.roundedRect(20,y,22,22,3,3,'F');
-        doc.setTextColor(gc[0],gc[1],gc[2]); doc.setFontSize(16); doc.setFont('helvetica','bold'); doc.text((g.grade||'—')[0],26,y+15);
-        doc.setTextColor(0,0,0); doc.setFontSize(12); doc.text(`Score: ${Math.round(g.score)}/100`,50,y+8);
-        doc.setFontSize(10); doc.text(g.description||'',50,y+16);
-        y+=28;
-
-        // Mini chips row (Price, Equity, Loan, Monthly P&I)
-        const chipsRowY = y;
-        const makeChip=(label, value)=>{
-          const txt = `${label}: ${value}`;
-          doc.setFontSize(9); doc.setFont('helvetica','normal');
-          const tw = doc.getTextWidth(txt) + 8; const h=8;
-          doc.setDrawColor(232,236,244); doc.setFillColor(248,250,252);
-          doc.roundedRect(x, chipsRowY, tw, h, 2, 2, 'FD');
-          doc.setTextColor(17,24,39); doc.text(txt, x+4, chipsRowY+5.5);
-          x += tw + 4;
-        };
-        let x = 20;
-        makeChip('Price', formatCurrencyAED(pv));
-        makeChip('Equity', formatCurrencyAED(downPayment));
-        makeChip('Loan', formatCurrencyAED(loanAmount));
-        makeChip('Monthly P&I', formatCurrencyAED(monthlyPayment));
-        y = chipsRowY + 14;
-
-        // Key metrics
-        const auto = (doc).autoTable; // plugin
-        if(auto){
-          doc.setFont('helvetica','bold'); doc.setFontSize(12); doc.text('KEY METRICS',20,y); y+=6;
-          doc.autoTable({
-            startY:y,
-            head:[['Metric','Value']],
-            body:[
-              ['DSCR', isFinite(dscr)? dscr.toFixed(2)+'x':'-'],
-              ['Net Yield', isFinite(netYield)? netYield.toFixed(1)+'%':'-'],
-              ['Gross Yield', isFinite(grossYield)? grossYield.toFixed(1)+'%':'-'],
-              ['Cash Flow', (isFinite(monthlyCashFlow)? Math.round(monthlyCashFlow).toLocaleString('en-US'):'-')+' /mo'],
-              ['ROI (5y)', isFinite(roi5)? Math.round(roi5)+'%':'-']
-            ],
-            theme:'grid', headStyles:{ fillColor:[59,130,246], textColor:255 }, styles:{ fontSize:9 }
-          });
-          y = doc.lastAutoTable.finalY + 10;
-
-          // User Inputs (key)
-          doc.setFont('helvetica','bold'); doc.setFontSize(12); doc.text('USER INPUTS (KEY)',20,y); y+=6;
-          doc.autoTable({
-            startY:y,
-            head:[['Input','Value']],
-            body:[
-              ['Down Payment (%)', getVal('downPayment')||'-'],
-              ['Agent Fee (%)', getVal('agentFee')||'-'],
-              ['Loan Term (years)', getVal('loanTerm')||'-'],
-              ['Interest Rate (%)', getVal('interestRate')||'-'],
-              ['Additional Costs (AED)', getVal('additionalCosts')||'-'],
-              ['Monthly Rent (AED)', getVal('monthlyRent')||'-'],
-              ['Additional Income (AED)', getVal('additionalIncome')||'-'],
-              ['Vacancy Rate (%)', getVal('vacancyRate')||'-']
-            ],
-            theme:'grid', headStyles:{ fillColor:[31,41,55], textColor:255 }, styles:{ fontSize:9 }
-          });
-          y = doc.lastAutoTable.finalY + 10;
-        }
-
-        // Page 2: Financial Breakdown & Cashflow
-        doc.addPage();
-        // Header repeat
-        doc.setFillColor(31,41,55); doc.rect(0,0,pageWidth,25,'F');
-        doc.setTextColor(255,255,255); doc.setFontSize(16); doc.setFont('helvetica','bold');
-        doc.text('Smart Property Analyzer',20,15);
-        doc.setFontSize(10); doc.setFont('helvetica','normal'); doc.text('Dubai Real Estate Investment Analysis',20,20);
-        doc.setTextColor(0,0,0);
-        y = 40;
-        doc.setFont('helvetica','bold'); doc.setFontSize(14); doc.text('FINANCIAL BREAKDOWN',20,y); y+=6;
-        if((doc).autoTable){
-          doc.autoTable({
-            startY:y,
-            head:[['Component','Amount (AED)','%']],
-            body:[
-              ['Property Value', Math.round(pv).toLocaleString('en-US'), '100%'],
-              ['Down Payment', Math.round(downPayment).toLocaleString('en-US'), `${downPct||0}%`],
-              ['Agent Fee', Math.round(agentFee).toLocaleString('en-US'), `${agentFeePct||0}%`],
-              ['DLD Fee', Math.round(dldFee).toLocaleString('en-US'), '4%'],
-              ['Additional Costs', Math.round(additionalCosts).toLocaleString('en-US'), '-']
-            ],
-            foot:[['Total Investment', Math.round(totalInitial).toLocaleString('en-US'), '-']],
-            theme:'grid', headStyles:{ fillColor:[31,41,55], textColor:255 }, footStyles:{ fillColor:[243,244,246] }, styles:{ fontSize:9 }
-          });
-          y = doc.lastAutoTable.finalY + 12;
-          doc.setFont('helvetica','bold'); doc.setFontSize(14); doc.text('MONTHLY INCOME & EXPENSES',20,y); y+=6;
-          const monthlyData=[
-            ['Gross Rental Income', Math.round(rent).toLocaleString('en-US')],
-            ['Additional Income', Math.round(addInc).toLocaleString('en-US')],
-            ['Management Fee', `(${Math.round(monthlyMgmt).toLocaleString('en-US')})`],
-            ['Maintenance', `(${Math.round(monthlyMaint).toLocaleString('en-US')})`],
-            ['Insurance & Other', `(${Math.round((annualInsurance/12)+(otherExpenses/12)).toLocaleString('en-US')})`],
-            ['Mortgage Payment', `(${Math.round(monthlyPayment).toLocaleString('en-US')})`]
-          ];
-          doc.autoTable({
-            startY:y,
-            head:[['Item','Amount (AED)']],
-            body: monthlyData,
-            foot:[['Net Cash Flow', Math.round(monthlyCashFlow).toLocaleString('en-US')]],
-            theme:'grid', headStyles:{ fillColor:[31,41,55], textColor:255 },
-            footStyles:{ fillColor: (monthlyCashFlow>=0?[16,185,129]:[239,68,68]), textColor:255, fontStyle:'bold' },
-            styles:{ fontSize:9 }
-          });
-          y = doc.lastAutoTable.finalY + 12;
-          // Deal Comparison (if any saved deals)
-          try{
-            const deals = JSON.parse(localStorage.getItem('spa_deal_compare')||'[]');
-            if(deals && deals.length){
-              doc.setFont('helvetica','bold'); doc.setFontSize(14); doc.text('DEAL COMPARISON',20,y); y+=6;
-              const head = [['Metric', deals[0]?.name||'Deal 1', deals[1]?.name||'Deal 2', deals[2]?.name||'Deal 3']];
-              const fmt = (v)=> isFinite(v)? String(v): '-';
-              const fAED=(v)=> isFinite(v)? Math.round(v).toLocaleString('en-US'): '-';
-              const fPct=(v,d=1)=> isFinite(v)? v.toFixed(d)+'%':'-';
-              const fX=(v)=> isFinite(v)? v.toFixed(2)+'x':'-';
-              const body=[
-                ['Grade', ...(deals.map(d=> d? `${d.grade||'-'} (${isFinite(d.gradeScore)? Math.round(d.gradeScore):'-'}/100)`:'-'))],
-                ['Price (AED)', ...(deals.map(d=> fAED(d?.price)))],
-                ['Loan amount (AED)', ...(deals.map(d=> fAED(d?.loanAmount)))],
-                ['Total initial (AED)', ...(deals.map(d=> fAED(d?.totalInitial)))],
-                ['Monthly P&I (AED)', ...(deals.map(d=> fAED(d?.monthlyPayment)))],
-                ['Cash flow / mo (AED)', ...(deals.map(d=> fAED(d?.cashFlow)))],
-                ['DSCR', ...(deals.map(d=> fX(d?.dscr)))],
-                ['Net yield', ...(deals.map(d=> fPct(d?.netYield,1)))],
-                ['Gross yield', ...(deals.map(d=> fPct(d?.grossYield,1)))],
-                ['ROI (5y)', ...(deals.map(d=> fPct(d?.roi5,0)))],
-                ['IRR (5y)', ...(deals.map(d=> fPct(d?.irr5,2)))],
-              ];
-              doc.autoTable({
-                startY:y,
-                head: head,
-                body: body,
-                theme:'grid',
-                headStyles:{ fillColor:[59,130,246], textColor:255 },
-                styles:{ fontSize:9 }
-              });
-              y = doc.lastAutoTable.finalY + 8;
-              // Short recommendation line
-              const best = [...deals].sort((a,b)=> (b.gradeScore||0)-(a.gradeScore||0))[0];
-              const bestCF = [...deals].sort((a,b)=> (b.cashFlow||-1e9)-(a.cashFlow||-1e9))[0];
-              let line='Comparison summary: ';
-              if(best) line += `Best overall: ${best.name||'Deal'} (Grade ${best.grade||'-'}). `;
-              if(bestCF) line += `Best cash flow: ${bestCF.name||'Deal'} (AED ${isFinite(bestCF.cashFlow)? Math.round(bestCF.cashFlow).toLocaleString('en-US'):'-'} /mo).`;
-              doc.setFont('helvetica','normal'); doc.setFontSize(10);
-              doc.text(line, 20, y);
-            }
-          }catch(_){}
-        }
-
-        // Footer
-        const footerY = pageHeight-10; doc.setFontSize(8); doc.setTextColor(107,114,128);
-        doc.text('Smart Property Analyzer - Dubai',20,footerY);
-        doc.save(`property-analysis-${Date.now()}.pdf`);
-      }catch(e){ console.error(e); window.print(); }
+    proBtn.addEventListener('click', ()=>{
+      alert('PDF export is currently disabled.');
     });
   }
 
@@ -1738,3 +1316,57 @@ window.addEventListener('DOMContentLoaded', ()=>{
     const hidden=$("status"); const op=$("offplanFields"); if(op && hidden){ op.style.display = hidden.value==='offplan' ? 'block':'none'; }
   }
 });
+
+// --- Beta soft invite gate (soft gating for testers) ---
+(function(){
+  try{
+    const ok = localStorage.getItem('spa_beta_access')==='1';
+    const params=new URLSearchParams(location.search);
+    const code=(params.get('invite')||'').toUpperCase();
+    const allow=['SPA2026','BETA','SMART'];
+    if(!ok){
+      if(code && allow.includes(code)){ localStorage.setItem('spa_beta_access','1'); return; }
+      const overlay=document.createElement('div');
+      Object.assign(overlay.style,{position:'fixed',inset:'0',background:'rgba(10,15,35,.85)',zIndex:'10000',display:'flex',alignItems:'center',justifyContent:'center'});
+      overlay.innerHTML=`<div style="background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:16px 18px;max-width:360px;width:92%;text-align:center;box-shadow:0 20px 60px rgba(0,0,0,.35)">
+        <h3 style="margin:0 0 8px;color:#0b1e47">Beta access</h3>
+        <p style="margin:0 0 10px;color:#334155">Enter your invite code to continue.</p>
+        <input id="inviteCode" type="text" placeholder="Invite code" style="width:100%;padding:.7rem .8rem;border:1px solid #dbe4ff;border-radius:10px;margin-bottom:8px" />
+        <button id="inviteGo" class="btn" style="width:100%">Unlock</button>
+      </div>`;
+      document.body.appendChild(overlay);
+      const go=overlay.querySelector('#inviteGo');
+      const inp=overlay.querySelector('#inviteCode');
+      const valid=(v)=> allow.includes((v||'').toUpperCase());
+      go.addEventListener('click',()=>{ if(valid(inp.value)){ localStorage.setItem('spa_beta_access','1'); overlay.remove(); } else { inp.style.borderColor='#ef4444'; }});
+      inp.addEventListener('keydown',(e)=>{ if(e.key==='Enter') go.click(); });
+    }
+  }catch(_){}
+})();
+
+// --- Analytics helpers and events (Plausible) ---
+window._track=function(name, props){ try{ if(window.plausible){ window.plausible(name, props? {props}: undefined); } }catch(_){} };
+
+// CTA clicks: Analyze a deal
+document.addEventListener('click',(e)=>{
+  const a=e.target.closest('a');
+  if(a && (a.getAttribute('href')==='#calcStart' || (a.getAttribute('href')||'').includes('#calcStart'))){
+    window._track('analyze_cta_click');
+  }
+});
+// Wizard next/prev
+(function(){
+  const n=document.getElementById('nextStep'), p=document.getElementById('prevStep');
+  if(n) n.addEventListener('click',()=> window._track('wizard_next'));
+  if(p) p.addEventListener('click',()=> window._track('wizard_prev'));
+  document.querySelectorAll('.segcaps .cap,[data-step]').forEach(el=>{
+    el.addEventListener('click',()=>{ const s=el.getAttribute('data-step'); if(s) window._track('wizard_step_view',{step:s}); });
+  });
+})();
+// Share menu
+(function(){
+  const open=document.getElementById('shareToggle'); if(open) open.addEventListener('click',()=> window._track('share_open'));
+  const copy=document.getElementById('shareBtn'); if(copy) copy.addEventListener('click',()=> window._track('share_copy'));
+  const wa=document.getElementById('shareWA'); if(wa) wa.addEventListener('click',()=> window._track('share_whatsapp'));
+  const em=document.getElementById('shareEmail'); if(em) em.addEventListener('click',()=> window._track('share_email'));
+})();

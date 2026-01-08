@@ -4,12 +4,21 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>FAQ · Smart Property Analyzer - Dubai</title>
+  <meta name="robots" content="noindex,nofollow" />
+  <meta property="og:type" content="website" />
+  <meta property="og:title" content="FAQ · Smart Property Analyzer - Dubai" />
+  <meta property="og:description" content="Short answers to common questions about the analyzer and workflow." />
+  <meta property="og:image" content="logo-bars.svg" />
   <link rel="stylesheet" href="styles.css" />
+  <script defer data-domain="smart-property-analyzer2-9hj8.vercel.app" src="https://plausible.io/js/script.js"></script>
+  <script>
+    (function(c,l,a,r,i,t,y){c[a]=c[a]||function(){(c[a].q=c[a].q||[]).push(arguments)};t=l.createElement(r);t.async=1;t.src="https://www.clarity.ms/tag/"+i;y=l.getElementsByTagName(r)[0];y.parentNode.insertBefore(t,y);})(window,document,"clarity","script","X-REPLACE-CLARITY-ID");
+  </script>
 </head>
 <body>
   <header class="nav">
     <div class="wrap">
-      <div class="brand">Smart Property Analyzer - Dubai</div>
+      <a href="index.html" class="brand">Smart Property Analyzer - Dubai</a>
       <nav class="menu">
         <a href="index.html">Home</a>
         <a href="steps.html">How it works</a>
@@ -25,30 +34,98 @@
     <div class="wrap">
       <div class="hero-copy">
         <h1>FAQ</h1>
-        <p>Short answers to common questions.</p>
+        <p>Short, practical answers to help you get the most out of the analyzer.</p>
       </div>
     </div>
   </section>
 
   <main class="wrap results">
-    <div class="card">
-      <h3>How is the Deal Grade calculated?</h3>
-      <p>Weighted score from ROI (5y), cash flow, net yield and gross yield, tuned to Dubai buy‑to‑let benchmarks.</p>
-    </div>
-    <div class="card">
-      <h3>What assumptions does Basic use?</h3>
-      <p>Defaults: 3% annual appreciation, 0% rent growth, +2% expenses/yr. Pro adds full growth scenarios.</p>
-    </div>
-    <div class="card">
-      <h3>Can I export a client‑ready PDF?</h3>
-      <p>Yes. Use “Download Professional Report” to generate a multi‑page PDF with summary and breakdown.</p>
-    </div>
-    <div class="card">
-      <h3>Is my data saved?</h3>
-      <p>No account needed for Basic; data stays in your browser during the session.</p>
-    </div>
+    <details class="disclose">
+      <summary>How is the Investment Grade calculated?</summary>
+      <div class="disclose-body">
+        <p>A weighted score tuned to Dubai buy‑to‑let: ROI (5y), Net Yield, DSCR, IRR (5y), Gross Yield and Cash Flow. Each metric contributes up to its target, summed to 100 and mapped to A–F bands.</p>
+      </div>
+    </details>
+
+    <details class="disclose">
+      <summary>What are the Basic assumptions?</summary>
+      <div class="disclose-body">
+        <p>Defaults: property appreciation 3%/yr, rent growth 0%, expense inflation +2%/yr. Management and maintenance apply to effective income after vacancy. Cash‑on‑cash uses total initial cash invested.</p>
+      </div>
+    </details>
+
+    <details class="disclose">
+      <summary>How is DSCR computed?</summary>
+      <div class="disclose-body">
+        <p>Monthly DSCR = NOI (effective income − opex) ÷ monthly debt service (P&amp;I). We highlight DSCR near or below lender comfort ranges (e.g., 1.20×).</p>
+      </div>
+    </details>
+
+    <details class="disclose">
+      <summary>How does Rent guidance work?</summary>
+      <div class="disclose-body">
+        <p>We back‑solve the rent required to hit your selected target net yield (after vacancy and opex). The card shows current vs. target rent and the gap (AED and %).</p>
+      </div>
+    </details>
+
+    <details class="disclose">
+      <summary>Does it support off‑plan?</summary>
+      <div class="disclose-body">
+        <p>Yes. Choose “Off‑plan” and set handover and pre‑handover payment %. The model applies down payment at handover on the post‑construction balance and computes loan after handover.</p>
+      </div>
+    </details>
+
+    <details class="disclose">
+      <summary>Which inputs matter most?</summary>
+      <div class="disclose-body">
+        <p>Price, rent, vacancy, management/maintenance %, down payment, interest rate and term. These drive cash flow, yields and grade the most.</p>
+      </div>
+    </details>
+
+    <details class="disclose">
+      <summary>Can I share an analysis?</summary>
+      <div class="disclose-body">
+        <p>Yes. Use Share → “Copy link” (or WhatsApp/Email). Inputs are serialized in the URL for quick collaboration.</p>
+      </div>
+    </details>
+
+    <details class="disclose">
+      <summary>Can I export a report?</summary>
+      <div class="disclose-body">
+        <p>Report export is temporarily disabled during beta (“Report export (soon)”). It returns with Pro.</p>
+      </div>
+    </details>
+
+    <details class="disclose">
+      <summary>Where is my data stored?</summary>
+      <div class="disclose-body">
+        <p>For Basic, inputs live in your browser. Saved comparisons use local storage. Newsletter emails are stored by our email provider—see the Privacy page.</p>
+      </div>
+    </details>
+
+    <details class="disclose">
+      <summary>Is it mobile‑friendly?</summary>
+      <div class="disclose-body">
+        <p>Yes. The 4‑step analyzer is optimized for phones and tablets. On small screens, actions are kept reachable.</p>
+      </div>
+    </details>
+
+    <details class="disclose">
+      <summary>Which markets does it target?</summary>
+      <div class="disclose-body">
+        <p>Dubai benchmarks are used for the Investment Grade. Other markets are planned.</p>
+      </div>
+    </details>
+
+    <details class="disclose">
+      <summary>How do I report an issue?</summary>
+      <div class="disclose-body">
+        <p>Use the “Beta feedback” button or email <a href="mailto:hello@example.com">hello@example.com</a> with price, down %, rate, rent and fees (a screenshot helps).</p>
+      </div>
+    </details>
+
     <div class="center">
-      <a class="btn" href="index.html#calcStart">Start analysis</a>
+      <a class="btn" href="index.html#calcStart">Analyze a deal</a>
     </div>
   </main>
 
@@ -60,7 +137,7 @@
       </div>
       <div>
         <h4>Product</h4>
-        <a href="index.html">Start analysis</a>
+        <a href="index.html">Analyze a deal</a>
         <a href="steps.html">How it works</a>
       </div>
       <div>
@@ -75,6 +152,11 @@
     </div>
     <div class="copy">© 2025 Smart Property Analyzer - Dubai. All rights reserved.</div>
   </footer>
+
+  <div class="floating-feedback">
+    <button class="btn" id="openFeedback">Feedback</button>
+  </div>
+  <script src="script.js?v=4"></script>
 </body>
 </html>
 

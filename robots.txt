@@ -1,0 +1,5 @@
+User-agent: *
+Disallow: /
+# During beta we block indexing. Remove this Disallow when you go public.
+
+
