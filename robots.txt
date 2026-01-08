@@ -1,5 +1,6 @@
 User-agent: *
-Disallow: /
-# During beta we block indexing. Remove this Disallow when you go public.
+Allow: /
 
+# Optional: point crawlers to your sitemap
+Sitemap: /sitemap.xml
 
