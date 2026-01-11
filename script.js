@@ -514,6 +514,76 @@ function calculate(){
       drivers.textContent = `Top drivers: ROI ${roiStr}, IRR ${irrStr}, DSCR ${dscrStr}, Net ${netStr}`;
     }
   }
+  // Enhanced grade section (radial progress + center texts)
+  (function(){
+    const letterEl=document.getElementById('geLetter');
+    const scoreEl=document.getElementById('geScore');
+    const progEl=document.getElementById('geProgress');
+    const badgeWrap=document.getElementById('geBadge');
+    const wrap=document.getElementById('gradeEnhanced');
+    const headline=document.getElementById('geHeadline');
+    const desc=document.getElementById('geDesc');
+    const pct=Math.max(0, Math.min(100, Math.round(g.score||0)));
+    if(letterEl){ letterEl.textContent = (g.grade||'—')[0]||'—'; }
+    if(scoreEl){ scoreEl.textContent = `${pct}/100`; }
+    if(badgeWrap){
+      const span = badgeWrap.querySelector('span');
+      if(span){
+        const ch=(g.grade||'')[0]||'';
+        let txt='Excellent Investment';
+        if(ch==='B') txt='Solid Investment';
+        else if(ch==='C') txt='Borderline';
+        else if(ch==='D' || ch==='F') txt='Not Recommended';
+        span.textContent = txt;
+      }
+    }
+    if(progEl){
+      const C=565; // 2πr for r=90
+      // reset to start then animate to target
+      progEl.style.strokeDasharray = String(C);
+      progEl.style.strokeDashoffset = String(C);
+      // force reflow to ensure transition runs on update
+      try{ progEl.getBoundingClientRect(); }catch(_){}
+      const target = C * (1 - (pct/100));
+      progEl.style.transition = 'stroke-dashoffset 2s ease-out';
+      progEl.style.strokeDashoffset = String(target);
+    }
+    // Color state + gradient by result
+    (function(){
+      const ch=(g.grade||'')[0]||'';
+      let state='ge-bad';
+      if(pct>=85) state='ge-good';
+      else if(pct>=65) state='ge-warn';
+      if(wrap){
+        wrap.classList.remove('ge-good','ge-warn','ge-bad');
+        wrap.classList.add(state);
+      }
+      if(progEl){
+        if(state==='ge-good') progEl.setAttribute('stroke','url(#geGradient)');
+        else if(state==='ge-warn') progEl.setAttribute('stroke','url(#geGradientWarn)');
+        else progEl.setAttribute('stroke','url(#geGradientBad)');
+      }
+      // Dynamic headline/description based on drivers vs targets
+      const okNet = isFinite(netYield) && netYield>=6;
+      const okDSCR = isFinite(dscr) && dscr>=1.2;
+      const okIRR = isFinite(window._irr5) && window._irr5>=12;
+      const okROI = isFinite(roi5) && roi5>=60;
+      const okGross = isFinite(grossYield) && grossYield>=8;
+      const okCF = isFinite(monthlyCashFlow) && monthlyCashFlow>=0;
+      const hits=[]; if(okNet) hits.push('Net Yield'); if(okDSCR) hits.push('DSCR'); if(okIRR) hits.push('IRR'); if(okROI) hits.push('ROI'); if(okGross) hits.push('Gross'); if(okCF) hits.push('Cash Flow');
+      const misses=[]; if(!okNet) misses.push('Net Yield'); if(!okDSCR) misses.push('DSCR'); if(!okIRR) misses.push('IRR'); if(!okROI) misses.push('ROI'); if(!okGross) misses.push('Gross'); if(!okCF) misses.push('Cash Flow');
+      let h='Deal outlook';
+      if(state==='ge-good') h='Strong deal under current assumptions';
+      else if(state==='ge-warn') h='Mixed outlook — improve key drivers';
+      else h='Not recommended in current form';
+      if(headline) headline.textContent = h;
+      if(desc){
+        const metTxt = hits.length ? `Meets: ${hits.slice(0,3).join(', ')}.` : '';
+        const missTxt = misses.length ? ` Below target: ${misses.slice(0,3).join(', ')}.` : '';
+        desc.textContent = `${metTxt}${missTxt} See Driver cards below for more details.`;
+      }
+    })();
+  })();
   // Inline validation warnings (soft)
   (function(){
     const msgs=[];
@@ -632,49 +702,55 @@ function calculate(){
     if(c2){
       c2.innerHTML='';
       items.forEach(it=>{
-        const li=document.createElement('li'); li.className='gitem ' + (it.achieved>=1?'good':it.achieved>=0.7?'warn':'bad');
-        li.innerHTML = `<div class="head"><span class="name">${it.name}</span><span class="pct"><span class="pct-tag">${Math.round(it.achieved*100)}%</span><span class="pct-text">of target</span></span></div>`;
-        const bar=document.createElement('div'); bar.className='bar'; const fill=document.createElement('i'); fill.style.width=(Math.min(100, Math.round(it.achieved*100)))+'%'; bar.appendChild(fill); li.appendChild(bar);
-        const sub=document.createElement('div'); sub.className='sub';
-        const val = it.unit==='%'? formatPercent(it.value,1): (it.unit==='x'? (isFinite(it.value)? it.value.toFixed(2)+'x':'—'): (isFinite(it.value)? ('AED '+Math.round(it.value).toLocaleString('en-US')+'/mo'):'—'));
-        sub.textContent = `${val} • Target: ${it.target}${it.unit}`;
-        // delta chip (same as above)
-        let dVal=0, warnBand=0, unit=it.unit;
-        if(it.name==='ROI (5y)'){ dVal = (isFinite(roi5)? roi5-60:0); warnBand=20; unit='%'; }
-        else if(it.name==='Net Yield'){ dVal = (isFinite(netYield)? netYield-6:0); warnBand=2; unit='%'; }
-        else if(it.name==='DSCR'){ dVal = (isFinite(dscr)? dscr-1.2:0); warnBand=0.2; unit='x'; }
-        else if(it.name==='IRR (5y)'){ dVal = (isFinite(irr5Pct)? irr5Pct-12:0); warnBand=3; unit='%'; }
-        else if(it.name==='Gross Yield'){ dVal = (isFinite(grossYield)? grossYield-8:0); warnBand=2; unit='%'; }
-        else if(it.name==='Cash Flow'){ dVal = (isFinite(monthlyCashFlow)? monthlyCashFlow:0); warnBand=200; unit='AED'; }
-        const chip=document.createElement('span'); chip.className='dchip';
-        let cls='bad', arrow='↓', text='';
-        if(it.name==='Cash Flow'){
-          if(dVal>=0){ cls='good'; arrow='↑'; text = (dVal>=0?'+':'−')+Math.abs(Math.round(dVal)).toLocaleString('en-US'); }
-          else if(dVal>=-warnBand){ cls='warn'; arrow='→'; text = (dVal>=0?'+':'−')+Math.abs(Math.round(dVal)).toLocaleString('en-US'); }
-          else { text = (dVal>=0?'+':'−')+Math.abs(Math.round(dVal)).toLocaleString('en-US'); }
-          chip.textContent = `${text} ${arrow}`;
-        }else{
-          if(dVal>=0){ cls='good'; arrow='↑'; }
-          else if(dVal>=-warnBand){ cls='warn'; arrow='→'; }
-          const fmt = (unit==='x')? ((v)=>(v>=0?'+':'')+Math.abs(v).toFixed(2)+'x') : ((v)=>(v>=0?'+':'')+Math.abs(v).toFixed(1)+'%');
-          chip.textContent = `${fmt(dVal)} ${arrow}`;
-        }
-        chip.className += ' '+cls;
-        sub.appendChild(chip);
-        li.appendChild(sub);
-        // Tooltip bottom-right per KPI
-        const tip=document.createElement('span'); tip.className='info'; tip.textContent='i';
-        const tipBox=document.createElement('span'); tipBox.className='itip';
-        let tipText='Metric info';
-        if(it.name==='ROI (5y)') tipText='ROI (5y) is total return on your initial cash over 5 years (cash flow + principal + appreciation). Healthy: ≥ 60%. Higher ROI means faster payback of equity.';
-        else if(it.name==='Net Yield') tipText='Net Yield = NOI ÷ price after vacancy and opex. Healthy: ≥ 6%. Higher net yield generally indicates better efficiency and buffer for costs.';
-        else if(it.name==='DSCR') tipText='DSCR = NOI ÷ monthly P&I. Healthy: ≥ 1.20× (1.0–1.2 is tight). Higher DSCR means more cushion to cover the mortgage in down months.';
-        else if(it.name==='Gross Yield') tipText='Gross Yield = (Rent + additional income) ÷ price before opex. Healthy: ≥ 8%. Use alongside Net Yield to spot high fee loads.';
-        else if(it.name==='Cash Flow') tipText='Cash Flow (mo) = NOI − P&I per month. Healthy: ≥ AED 0/mo. Positive cash flow improves resilience and liquidity.';
-        else if(it.name==='IRR (5y)') tipText='IRR (5y) is the annualized return including timing of cash flows and exit. Healthy: ≥ 12%. Useful to compare this deal vs. alternatives with different timelines.';
-        tipBox.textContent = tipText;
-        tip.appendChild(tipBox);
-        li.appendChild(tip);
+        // metric mapping
+        const key = it.name==='ROI (5y)'?'roi'
+          : it.name==='Net Yield'?'netYield'
+          : it.name==='DSCR'?'dscr'
+          : it.name==='IRR (5y)'?'irr'
+          : it.name==='Gross Yield'?'grossYield'
+          : 'cashFlow';
+        // actual & target values
+        let actual = 0, target=0, unit='%';
+        if(key==='roi'){ actual=isFinite(roi5)? roi5:0; target=60; unit='%'; }
+        else if(key==='netYield'){ actual=isFinite(netYield)? netYield:0; target=6; unit='%'; }
+        else if(key==='dscr'){ actual=isFinite(dscr)? dscr:0; target=1.2; unit='x'; }
+        else if(key==='irr'){ actual=isFinite(irr5Pct)? irr5Pct:0; target=12; unit='%'; }
+        else if(key==='grossYield'){ actual=isFinite(grossYield)? grossYield:0; target=8; unit='%'; }
+        else if(key==='cashFlow'){ actual=isFinite(monthlyCashFlow)? monthlyCashFlow:0; target=2000; unit=''; }
+        const pct = Math.max(0, Math.min(100, (target>0? (actual/target*100):0)));
+        const status = pct>=100? 'excellent' : pct>=80? 'good' : 'warning';
+        const delta = actual - target;
+        const positive = delta>=0;
+        // formatting
+        const fmtVal = ()=>{
+          if(unit==='%') return isFinite(actual)? actual.toFixed(1)+'%':'—';
+          if(unit==='x') return isFinite(actual)? actual.toFixed(2)+'x':'—';
+          return isFinite(actual)? Math.round(actual).toLocaleString('en-US'):'—';
+        };
+        const fmtTarget = ()=>{
+          if(unit==='%') return target.toFixed(0)+'%';
+          if(unit==='x') return target.toFixed(1)+'x';
+          return Math.round(target).toLocaleString('en-US');
+        };
+        const fmtDelta = ()=>{
+          if(unit==='%') return (positive?'+':'')+ (delta).toFixed(1)+'%';
+          if(unit==='x') return (positive?'+':'')+ (delta).toFixed(2)+'x';
+          return (positive?'+':'')+ Math.round(delta).toLocaleString('en-US');
+        };
+        const li=document.createElement('li');
+        li.innerHTML = `
+          <div class="driver-card ${status}" data-metric="${key}">
+            <span class="status-badge">${status==='excellent'?'Excellent': status==='good'?'Good':'Below Target'}</span>
+            <div class="card-title">${it.name}</div>
+            <div class="card-value">${fmtVal()}</div>
+            <div class="progress-bar">
+              <div class="progress-fill" style="width:${Math.round(pct)}%"></div>
+            </div>
+            <div class="card-footer">
+              <span class="target-label">Target: ${fmtTarget()}</span>
+              <span class="delta-badge ${positive?'positive':'negative'}">${fmtDelta()}</span>
+            </div>
+          </div>`;
         c2.appendChild(li);
       });
     }
@@ -782,6 +858,72 @@ function calculate(){
       recs.push({type:'success', text:'Current rent is near recommended for your target net yield.'});
     }
   }
+  // Render Rent Optimization card in dedicated section
+  (function(){
+    const host=document.getElementById('rentActionHost');
+    if(!host) return;
+    const targetPct = (typeof window._recTargetPct==='number')? window._recTargetPct : 6;
+    const targetRent = (typeof window._recSuggestRent==='number')? Math.round(window._recSuggestRent) : NaN;
+    const shouldShow = isFinite(netYield) && isFinite(targetPct) && netYield < targetPct && isFinite(targetRent) && targetRent>0;
+    if(!shouldShow){ host.style.display='none'; host.innerHTML=''; return; }
+    host.style.display='block';
+    host.innerHTML = `
+      <div class="driver-card-action">
+        <span class="action-badge">ACTION</span>
+        <div class="action-header">
+          <div class="action-title-group">
+            <h4>Rent Optimization</h4>
+            <p>Achieve target net yield</p>
+          </div>
+        </div>
+        <div class="action-comparison">
+          <div class="action-metric">
+            <span class="metric-label">Current Rent</span>
+            <span class="metric-value" id="currentRentAction">AED —</span>
+            <span class="metric-sub" id="currentYieldAction">— yield</span>
+          </div>
+          <div class="action-arrow">→</div>
+          <div class="action-metric">
+            <span class="metric-label">Target Rent</span>
+            <span class="metric-value" id="targetRentAction">AED —</span>
+            <span class="metric-sub" id="targetYieldAction">— yield</span>
+          </div>
+        </div>
+        <div class="action-cta">
+          <div class="cta-text" id="actionCtaText">Increase rent by AED — to improve grade</div>
+          <button class="action-button" id="applyRentBtn">Recalculate with Target Rent →</button>
+        </div>
+      </div>`;
+    // Populate values
+    const curTxt = formatCurrencyAED(rent);
+    const tgtTxt = formatCurrencyAED(targetRent);
+    const inc = Math.max(0, targetRent - rent);
+    const incTxt = 'AED '+Math.round(inc).toLocaleString('en-US');
+    const cy=document.getElementById('currentYieldAction');
+    const ty=document.getElementById('targetYieldAction');
+    const cr=document.getElementById('currentRentAction');
+    const tr=document.getElementById('targetRentAction');
+    const ct=document.getElementById('actionCtaText');
+    if(cr) cr.textContent = curTxt;
+    if(tr) tr.textContent = tgtTxt;
+    if(cy) cy.textContent = (isFinite(netYield)? netYield.toFixed(1):'—') + '% yield';
+    if(ty) ty.textContent = (isFinite(targetPct)? targetPct.toFixed(1):'—') + '% yield';
+    if(ct) ct.textContent = `Increase rent by ${incTxt} to improve grade`;
+    const btn=document.getElementById('applyRentBtn');
+    if(btn && !btn._bound){
+      btn._bound=true;
+      btn.addEventListener('click', ()=>{
+        const v = Math.max(0, targetRent);
+        const s=document.getElementById('monthlyRent'), n=document.getElementById('monthlyRentNum');
+        if(s){ s.value=String(v); }
+        if(n){ n.value=String(v); }
+        try{ calculate(); }catch(_){}
+        // Link user to Step 3 (Revenue) for adjustments
+        if(typeof setStep==='function'){ setStep(3); }
+        const calc=document.getElementById('calcStart'); if(calc){ calc.scrollIntoView({behavior:'smooth', block:'start'}); }
+      });
+    }
+  })();
   // DSCR insights
   if(isFinite(dscr)){
     if(dscr<1.0) recs.push({type:'danger',text:`DSCR ${dscr.toFixed(2)}: debt service exceeds NOI. Improve rent or terms.`});
@@ -1103,6 +1245,22 @@ window.addEventListener('DOMContentLoaded', ()=>{
     });
   }
   
+  // Floating WhatsApp support button
+  const waBtn=document.getElementById('openWhatsApp');
+  if(waBtn && !waBtn._bound){
+    waBtn._bound=true;
+    waBtn.addEventListener('click', ()=>{
+      let raw = (waBtn.getAttribute('data-wa-number')||'').trim();
+      try{ if(!raw){ raw = (localStorage.getItem('support_wa_number')||'').trim(); } }catch(_){}
+      const num = raw.replace(/[^0-9]/g,''); // keep digits only
+      let msg = waBtn.getAttribute('data-wa-message') || 'Hi! I’d like support.';
+      try{ const m=(localStorage.getItem('support_wa_message')||'').trim(); if(!waBtn.getAttribute('data-wa-message') && m){ msg=m; } }catch(_){}
+      const url = num ? `https://wa.me/${num}?text=${encodeURIComponent(msg)}` : `https://wa.me/?text=${encodeURIComponent(msg)}`;
+      try{ window.open(url, '_blank'); }catch(_){ location.href=url; }
+      if(typeof window._track==='function'){ window._track('support_whatsapp'); }
+    });
+  }
+
 
   // Shareable link: encode current inputs into URL
   const encodeState = (obj)=> btoa(unescape(encodeURIComponent(JSON.stringify(obj))));
@@ -1435,6 +1593,8 @@ window.addEventListener('DOMContentLoaded', ()=>{
     // expose helpers for debug
     window._cmpRender = render;
   })();
+
+  // Removed post-analyze feedback prompts; original floating feedback button remains active.
 
   // Cookie consent manager (basic GDPR)
   (function(){
