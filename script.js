@@ -490,6 +490,7 @@ function calculate(){
 
   // Grade
   const g = computeGrade(monthlyCashFlow, netYield, grossYield, roi5, dscr, irr5Pct);
+  window._hasAnalysis = true;
   window._lastGradeInfo = g;
   safeSetText('gradeLetter', g.grade);
   safeSetText('gradeDesc', g.description);
@@ -520,6 +521,7 @@ function calculate(){
     const scoreEl=document.getElementById('geScore');
     const progEl=document.getElementById('geProgress');
     const badgeWrap=document.getElementById('geBadge');
+    const badgeText=document.getElementById('geBadgeText');
     const wrap=document.getElementById('gradeEnhanced');
     const headline=document.getElementById('geHeadline');
     const desc=document.getElementById('geDesc');
@@ -527,15 +529,13 @@ function calculate(){
     if(letterEl){ letterEl.textContent = (g.grade||'—')[0]||'—'; }
     if(scoreEl){ scoreEl.textContent = `${pct}/100`; }
     if(badgeWrap){
-      const span = badgeWrap.querySelector('span');
-      if(span){
-        const ch=(g.grade||'')[0]||'';
-        let txt='Excellent Investment';
-        if(ch==='B') txt='Solid Investment';
-        else if(ch==='C') txt='Borderline';
-        else if(ch==='D' || ch==='F') txt='Not Recommended';
-        span.textContent = txt;
-      }
+      const ch=(g.grade||'')[0]||'';
+      let txt='Excellent Investment';
+      if(ch==='B') txt='Solid Investment';
+      else if(ch==='C') txt='Borderline';
+      else if(ch==='D' || ch==='F') txt='Not Recommended';
+      if(badgeText) badgeText.textContent = txt;
+      badgeWrap.style.display = '';
     }
     if(progEl){
       const C=565; // 2πr for r=90
@@ -626,13 +626,49 @@ function calculate(){
     // refresh chips/table if any existing deals
     if(typeof window._cmpRender==='function'){ window._cmpRender(); }
   })();
+  // Update Input Summary cards (new design)
+  (function updateInputSummaryCards(){
+    const byId=(id)=>document.getElementById(id);
+    const shortMoney=(v)=>{
+      const n=Math.round(v||0);
+      if(!isFinite(n) || n<=0) return '—';
+      if(n>=1_000_000) return (n/1_000_000).toFixed(1)+'M';
+      if(n>=1_000) return Math.round(n/1_000)+'K';
+      return n.toLocaleString('en-US');
+    };
+    const set=(id,val)=>{ const el=byId(id); if(el){ el.textContent = (val===undefined||val===null||val==='')? '—' : String(val); } };
+    // Property
+    set('icPrice', shortMoney(pv));
+    set('icType', (document.getElementById('propertyType')||{}).value || '—');
+    set('icBeds', ((document.getElementById('bedrooms')||{}).value? `${(document.getElementById('bedrooms')||{}).value}BR`:'—'));
+    set('icSize', ((document.getElementById('size')||{}).value? `${(document.getElementById('size')||{}).value} sqft`:'—'));
+    set('icStatus', ((document.getElementById('status')||{}).value||'')==='offplan'?'Off‑plan':(((document.getElementById('status')||{}).value||'')?'Ready':'—'));
+    // Financing
+    set('icTotalInitial', shortMoney(totalInitial));
+    set('icDown', (isFinite(downPct)&&isFinite(downPayment))? `${downPct.toFixed(0)}% (${shortMoney(downPayment)})`:'—');
+    set('icLoan', shortMoney(loanAmount));
+    set('icRate', isFinite(ratePct)? ratePct.toFixed(2)+'%':'—');
+    set('icTerm', years? (years+'y'):'—');
+    // Revenue
+    set('icRent', isFinite(rent)? Math.round(rent).toLocaleString('en-US'):'—');
+    set('icAnnualRent', isFinite(rent)? Math.round(rent*12).toLocaleString('en-US'):'—');
+    set('icVacancy', isFinite(vacancyRate)? vacancyRate.toFixed(0)+'%':'—');
+    set('icExtra', isFinite(addInc)? Math.round(addInc).toLocaleString('en-US'):'—');
+    set('icGross', (isFinite(rent)&&isFinite(addInc)&&isFinite(vacancyRate))? Math.round((rent+addInc)*(1 - (vacancyRate/100))*12).toLocaleString('en-US'):'—');
+    // Expenses
+    set('icOpexMo', isFinite(monthlyOpex)? Math.round(monthlyOpex).toLocaleString('en-US'):'—');
+    set('icOpexYr', isFinite(annualOpex)? Math.round(annualOpex).toLocaleString('en-US'):'—');
+    set('icMgmt', isFinite(mgmtRate)? mgmtRate.toFixed(0)+'%':'—');
+    set('icMaint', isFinite(maintRate)? maintRate.toFixed(0)+'%':'—');
+    set('icIns', isFinite(annualInsurance)? Math.round(annualInsurance).toLocaleString('en-US')+'/y':'—');
+  })();
   // Update Down label depending on status
   (function(){
     const lab=document.getElementById('downLabel');
     const st=(document.getElementById('status')||{}).value||'ready';
     if(lab) lab.textContent = (st==='offplan') ? 'Handover down payment (%)' : 'Down Payment (%)';
-    const dh=document.getElementById('downApplyHint');
-    if(dh){ dh.style.display = (st==='offplan') ? 'block':'none'; }
+    const tip=document.getElementById('downInfo');
+    if(tip){ tip.style.display = (st==='offplan') ? 'inline-flex':'none'; }
   })();
   // chips/flags removed as requested
   // populate grade rationale: show how each metric contributed to the score
@@ -889,9 +925,26 @@ function calculate(){
             <span class="metric-sub" id="targetYieldAction">— yield</span>
           </div>
         </div>
+        <div class="action-grade">
+          <span class="grade-label">New grade</span>
+          <div class="grade-row">
+            <span class="grade-pill from" id="gradeFrom">—</span>
+            <span class="action-arrow">→</span>
+            <span class="grade-pill to" id="gradeTo">—</span>
+          </div>
+          <div class="grade-sub">Projected with target rent</div>
+        </div>
         <div class="action-cta">
           <div class="cta-text" id="actionCtaText">Increase rent by AED — to improve grade</div>
-          <button class="action-button" id="applyRentBtn">Recalculate with Target Rent →</button>
+          <button class="action-button" id="applyRentBtn">
+            <svg class="btn-ico" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <polyline points="23 4 23 10 17 10"></polyline>
+              <polyline points="1 20 1 14 7 14"></polyline>
+              <path d="M3.51 9a9 9 0 0 1 14.13-3.36L23 10"></path>
+              <path d="M20.49 15a9 9 0 0 1-14.13 3.36L1 14"></path>
+            </svg>
+            Recalculate with Target Rent
+          </button>
         </div>
       </div>`;
     // Populate values
@@ -923,6 +976,53 @@ function calculate(){
         const calc=document.getElementById('calcStart'); if(calc){ calc.scrollIntoView({behavior:'smooth', block:'start'}); }
       });
     }
+    // Grade change preview with projected values at target rent
+    (function(){
+      try{
+        const C = (v)=> Math.max(0, v||0);
+        const tr = targetRent;
+        // incomes at target
+        const eff2 = (tr + addInc) * (1 - vacancyRate/100);
+        const mMaint2 = eff2 * (maintRate/100);
+        const mMgmt2 = eff2 * (mgmtRate/100);
+        const mOpex2 = mMaint2 + mMgmt2 + baseFee + (annualInsurance/12) + (otherExpenses/12);
+        const mCF2 = eff2 - mOpex2 - monthlyPayment;
+        const aRent2 = (tr + addInc) * 12;
+        const aEff2 = eff2 * 12;
+        const aOpex2 = mMaint2*12 + mMgmt2*12 + baseFee*12 + annualInsurance + otherExpenses;
+        const NOI2 = aEff2 - aOpex2;
+        const gYield2 = pv>0 ? (aRent2/pv)*100 : NaN;
+        const nYield2 = pv>0 ? (NOI2/pv)*100 : NaN;
+        const noiMonthly2 = eff2 - (mMaint2 + mMgmt2 + baseFee + (annualInsurance/12) + (otherExpenses/12));
+        const dscr2 = monthlyPayment>0 ? (noiMonthly2/monthlyPayment) : NaN;
+        const aCF2 = mCF2*12;
+        const roi5p2 = downPayment>0 ? ((aCF2*5 + principalPaid5 + appreciationGain)/downPayment)*100 : NaN;
+        let irrP2 = NaN;
+        try{
+          irrP2 = calculatePropertyIRR({
+            totalInitialInvestment: totalInitial,
+            monthlyCashFlow: mCF2,
+            loanAmount,
+            interestRate: ratePct/100,
+            loanTermYears: years,
+            propertyPrice: pv,
+            appreciationRate: 0.05,
+            years: 5
+          }).irrPercentage;
+        }catch(_){}
+        const gProj = computeGrade(mCF2, nYield2, gYield2, roi5p2, dscr2, irrP2);
+        const fromEl=document.getElementById('gradeFrom');
+        const toEl=document.getElementById('gradeTo');
+        if(fromEl) fromEl.textContent = (g.grade||'—')[0]||'—';
+        if(toEl){
+          const tgt = (gProj.grade||'—')[0]||'—';
+          toEl.textContent = tgt;
+          toEl.classList.remove('gp-good','gp-warn','gp-bad');
+          const cls = (tgt<'C')? 'gp-good' : (tgt==='C')? 'gp-warn' : 'gp-bad';
+          toEl.classList.add(cls);
+        }
+      }catch(_){}
+    })();
   })();
   // DSCR insights
   if(isFinite(dscr)){
@@ -973,6 +1073,8 @@ function calculate(){
 }
 
 window.addEventListener('DOMContentLoaded', ()=>{
+  // Initial placeholders: no analysis yet
+  window._hasAnalysis = false;
   // Soft access gate with code "smart"
   (function(){
     try{
@@ -1140,6 +1242,19 @@ window.addEventListener('DOMContentLoaded', ()=>{
       if(bar){ bar.classList.add('pulse'); setTimeout(()=>bar.classList.remove('pulse'), 1600); }
     });
   });
+  // Collapse/expand Input Summary grid
+  (function(){
+    const btn=document.getElementById('inpCollapseBtn');
+    const grid=document.getElementById('inputCardsGrid');
+    if(btn && grid && !btn._bound){
+      btn._bound=true;
+      btn.addEventListener('click', ()=>{
+        const hide=grid.style.display!=='none'? true:false;
+        grid.style.display = hide? 'none':'grid';
+        btn.textContent = hide? 'v' : '^';
+      });
+    }
+  })();
   // Recalc on input changes
   ['propertyValue','propertyValueNum','downPayment','downPaymentNum','agentFee','loanTerm','interestRate','interestRateNum','dldFeeEnabled','additionalCosts','monthlyRent','monthlyRentNum','additionalIncome','vacancyRate','vacancyRateNum','maintenanceRate','maintenanceRateNum','managementFee','managementFeeNum','baseFee','annualInsurance','otherExpenses','bedrooms','bathrooms','size','statusToggle','projectName']
   .forEach(id=>{ const el=$(id); if(el){ el.addEventListener('input', calculate); el.addEventListener('change', calculate); }});
@@ -1452,27 +1567,29 @@ window.addEventListener('DOMContentLoaded', ()=>{
     const byId=(id)=>document.getElementById(id);
     const getList=()=>{ try{ return JSON.parse(localStorage.getItem(key)||'[]'); }catch(_){ return []; } };
     const setList=(arr)=>{ try{ localStorage.setItem(key, JSON.stringify(arr)); }catch(_){} };
+    // expose helpers for matrix builder
+    window._cmpGetList = getList;
+    window._cmpSetList = setList;
     const render=()=>{
       const list=getList();
       const none=byId('noDealsMessage'), wrap=byId('comparisonTableWrapper'), chips=byId('savedDealsContainer');
-      if(!chips) return;
-      // chips row
-      chips.innerHTML='';
-      if(list.length===0){
-        if(none) none.style.display='block';
-      }else{
-        if(none) none.style.display='none';
-        list.forEach((d,i)=>{
-          const el=document.createElement('div'); el.className='saved-chip';
-          el.innerHTML = `<span class="name">${d.name||('Deal '+(i+1))}</span><span class="meta">${(d.grade||'–')} • ${d.netYield!=null? d.netYield.toFixed(1)+'% net':'–'}</span><button class="rm" title="Remove">×</button>`;
-          el.querySelector('.rm').addEventListener('click',()=>{
-            const next=getList().filter(x=>x.id!==d.id); setList(next); render(); buildTable();
+      // optional chips container removed → guard everything
+      if(chips){
+        chips.innerHTML='';
+        if(list.length===0){
+          if(none) none.style.display='block';
+        }else{
+          if(none) none.style.display='none';
+          list.forEach((d,i)=>{
+            const el=document.createElement('div'); el.className='saved-chip';
+            el.innerHTML = `<span class="name">${d.name||('Deal '+(i+1))}</span><span class="meta">${(d.grade||'–')} • ${d.netYield!=null? d.netYield.toFixed(1)+'% net':'–'}</span>`;
+            chips.appendChild(el);
           });
-          chips.appendChild(el);
-        });
+        }
       }
       if(wrap) wrap.style.display = list.length>0 ? 'block' : 'none';
-      buildTable();
+      // Legacy table removed; trigger new matrix render instead
+      if(typeof window._cmpRenderMatrix==='function'){ window._cmpRenderMatrix(); }
     };
     const fmtAED=(v)=> isFinite(v)? 'AED '+Math.round(v).toLocaleString('en-US'):'—';
     const fmtPct=(v, d=1)=> isFinite(v)? v.toFixed(d)+'%':'—';
@@ -1592,6 +1709,164 @@ window.addEventListener('DOMContentLoaded', ()=>{
     bind();
     // expose helpers for debug
     window._cmpRender = render;
+  })();
+
+  // Enhanced matrix builder
+  (function(){
+    function buildHeaderCell(deal, idx){
+      const div=document.createElement('div'); div.className='matrix-cell header-cell'; div.dataset.deal=String(idx+1);
+      const top=document.createElement('div'); top.className='deal-header-top';
+      const name=document.createElement('span'); name.className='deal-name'; name.textContent = deal?.name || `Deal ${idx+1}`;
+      const close=document.createElement('button'); close.className='close-btn'; close.dataset.deal=String(idx+1); close.innerHTML='&times;';
+      top.appendChild(name); top.appendChild(close); div.appendChild(top);
+      const meta=document.createElement('span'); meta.className='deal-meta'; meta.textContent = deal ? `${(deal.grade||'-')} • ${isFinite(deal.netYield)? deal.netYield.toFixed(1)+'% net':'—'}` : '—';
+      div.appendChild(meta);
+      if(!deal){ div.classList.add('empty'); div.innerHTML = '<button class="add-deal-btn">Add Deal</button>'; }
+      return div;
+    }
+    function gradeBadgeCell(deal){
+      if(!deal) return '—';
+      const g=(deal.grade||'—')[0]||'—';
+      const cls = `grade-badge grade-${g}`;
+      return `<div class="grade-display"><span class="${cls}">${g}</span><span class="grade-score">${Math.round(deal.gradeScore||0)}/100</span></div>`;
+    }
+    function cell(text, opts={}){ const d=document.createElement('div'); d.className='matrix-cell'; if(opts.category) d.setAttribute('data-category', opts.category); if(opts.metric) d.setAttribute('data-metric', opts.metric); d.innerHTML = text; return d; }
+    function label(text, category, metric){ const d=document.createElement('div'); d.className='matrix-cell label-cell'; d.textContent=text; if(category) d.setAttribute('data-category', category); if(metric) d.setAttribute('data-metric', metric); return d; }
+    function build(){
+      const matrix=document.getElementById('comparisonMatrix'); if(!matrix) return;
+      matrix.innerHTML='';
+      const list=(typeof window._cmpGetList==='function')? window._cmpGetList(): [];
+      const deals=[list[0], list[1], list[2]];
+      // Header row
+      matrix.appendChild(label('Metric'));
+      deals.forEach((d,i)=> matrix.appendChild(buildHeaderCell(d,i)));
+      // Rows
+      const rows=[
+        {name:'Grade', cat:'key', metric:'grade', render:(d)=> gradeBadgeCell(d)},
+        {name:'Price', cat:'property', metric:'price', render:(d)=> d? ('AED '+Math.round(d.price).toLocaleString('en-US')):'—'},
+        {name:'Loan amount', cat:'financial', metric:'loan', render:(d)=> d? ('AED '+Math.round(d.loanAmount).toLocaleString('en-US')):'—'},
+        {name:'Total initial', cat:'financial', metric:'initial', render:(d)=> d? ('AED '+Math.round(d.totalInitial).toLocaleString('en-US')):'—'},
+        {name:'Monthly P&I', cat:'financial', metric:'pi', render:(d)=> d? ('AED '+Math.round(d.monthlyPayment).toLocaleString('en-US')):'—'},
+        {name:'Cash flow / mo', cat:'key', metric:'cashflow', render:(d)=> d? ('AED '+Math.round(d.cashFlow).toLocaleString('en-US')):'—', negative:true},
+        {name:'DSCR', cat:'key', metric:'dscr', render:(d)=> d&&isFinite(d.dscr)? d.dscr.toFixed(2)+'x':'—'},
+        {name:'Net yield', cat:'key', metric:'netYield', render:(d)=> d&&isFinite(d.netYield)? d.netYield.toFixed(1)+'%':'—'},
+        {name:'Gross yield', cat:'financial', metric:'grossYield', render:(d)=> d&&isFinite(d.grossYield)? d.grossYield.toFixed(1)+'%':'—'},
+        {name:'ROI (5y)', cat:'key', metric:'roi', render:(d)=> d&&isFinite(d.roi5)? Math.round(d.roi5)+'%':'—'},
+        {name:'IRR (5y)', cat:'financial', metric:'irr', render:(d)=> d&&isFinite(d.irr5)? d.irr5.toFixed(2)+'%':'—'}
+      ];
+      rows.forEach(r=>{
+        matrix.appendChild(label(r.name, r.cat, r.metric));
+        deals.forEach(d=>{
+          const html=r.render(d);
+          const c=cell(html,{category:r.cat, metric:r.metric});
+          if(r.negative && d && d.cashFlow<0) c.classList.add('negative');
+          if(!d){ c.classList.add('empty'); c.innerHTML='&mdash;'; }
+          matrix.appendChild(c);
+        });
+      });
+      // Bind controls
+      const filterBtns=document.querySelectorAll('.filter-btn');
+      filterBtns.forEach(b=>{
+        if(!b._bound){
+          b._bound=true;
+          b.addEventListener('click', ()=>{
+            filterBtns.forEach(x=>x.classList.remove('active')); b.classList.add('active');
+            const f=b.dataset.filter||'all';
+            if(f==='all') matrix.removeAttribute('data-filter');
+            else matrix.setAttribute('data-filter', f);
+          });
+        }
+      });
+      const closeBtns=matrix.querySelectorAll('.close-btn');
+      closeBtns.forEach(btn=>{
+        if(!btn._bound){
+          btn._bound=true;
+          btn.addEventListener('click', ()=>{
+            const id=parseInt(btn.dataset.deal||'0',10);
+            const cur=(typeof window._cmpGetList==='function')? window._cmpGetList(): [];
+            const keep = cur.filter((_,i)=> i!== (id-1));
+            if(typeof window._cmpSetList==='function') window._cmpSetList(keep);
+            if(typeof window._cmpRender==='function') window._cmpRender();
+            build();
+          });
+        }
+      });
+      // Bind "Add Deal" buttons (empty slots)
+      const addBtns=matrix.querySelectorAll('.add-deal-btn');
+      addBtns.forEach(btn=>{
+        if(!btn._bound){
+          btn._bound=true;
+          btn.addEventListener('click', ()=>{
+            // If a current analysis exists, save it immediately
+            const cur = window._currentDealComparison;
+            if(cur && typeof window._cmpGetList==='function' && typeof window._cmpSetList==='function'){
+              const list = window._cmpGetList();
+              const next=[...list, cur].slice(-3);
+              window._cmpSetList(next);
+              if(typeof window._cmpRender==='function') window._cmpRender();
+              build();
+              if(typeof showNotification==='function') showNotification('Current analysis added to comparison');
+              return;
+            }
+            // Otherwise guide the user to run the analysis first
+            const calc=document.getElementById('calcStart');
+            if(typeof setStep==='function'){ setStep(1); }
+            if(calc){ calc.scrollIntoView({behavior:'smooth', block:'start'}); }
+            const analyze=document.getElementById('analyzeBtn');
+            if(analyze){ analyze.focus(); }
+            if(typeof showNotification==='function') showNotification('Fill inputs and click Analyze to generate a deal, then use Add Deal again.');
+          });
+        }
+      });
+      const clear=document.getElementById('cmpClearBtn');
+      if(clear && !clear._bound){
+        clear._bound=true;
+        clear.addEventListener('click', ()=>{
+          if(confirm('Clear all deals?')){
+            if(typeof window._cmpSetList==='function') window._cmpSetList([]);
+            if(typeof window._cmpRender==='function') window._cmpRender();
+            build();
+          }
+        });
+      }
+      const share=document.getElementById('cmpShareBtn');
+      if(share && !share._bound){
+        share._bound=true;
+        share.addEventListener('click', ()=>{
+          try{
+            const data=(typeof window._cmpGetList==='function')? window._cmpGetList(): [];
+            const url = `${location.origin}${location.pathname}?cmp=${btoa(unescape(encodeURIComponent(JSON.stringify(data))))}`;
+            navigator.clipboard.writeText(url);
+          }catch(_){}
+        });
+      }
+      // Best/worst marking (numeric parsing)
+      const numericMetrics=['price','initial','pi','cashflow','dscr','netYield','grossYield','roi','irr'];
+      numericMetrics.forEach(key=>{
+        const cells=Array.from(matrix.querySelectorAll(`.matrix-cell[data-metric="${key}"]:not(.label-cell):not(.empty)`));
+        if(cells.length<2) return;
+        const vals=cells.map(c=>{
+          const t=c.textContent||'';
+          const n=parseFloat(t.replace(/[^0-9.\-]/g,''));
+          return {c, v:isFinite(n)? n: (t.includes('x')? parseFloat(t) : NaN)};
+        }).filter(x=>isFinite(x.v));
+        if(!vals.length) return;
+        // Determine polarity
+        const higherIsBetter = !['price','initial','pi'].includes(key);
+        vals.sort((a,b)=> higherIsBetter? b.v-a.v : a.v-b.v);
+        vals.forEach(x=> x.c.classList.remove('best','worst'));
+        vals[0].c.classList.add('best');
+        vals[vals.length-1].c.classList.add('worst');
+      });
+      // Winner by gradeScore
+      const headers=matrix.querySelectorAll('.header-cell'); headers.forEach(h=>h.classList.remove('winner'));
+      let bestIdx=-1, bestScore=-1;
+      deals.forEach((d,i)=>{ if(d && isFinite(d.gradeScore) && d.gradeScore>bestScore){ bestScore=d.gradeScore; bestIdx=i; } });
+      if(bestIdx>=0){ const h=matrix.querySelectorAll('.header-cell')[bestIdx]; if(h){ h.classList.add('winner'); if(!h.querySelector('.winner-badge')){ const b=document.createElement('span'); b.className='winner-badge'; b.textContent='Best Overall'; h.appendChild(b);} } }
+    }
+    window._cmpRenderMatrix = build;
+    // Build once on load
+    build();
   })();
 
   // Removed post-analyze feedback prompts; original floating feedback button remains active.

@@ -15,6 +15,31 @@
     <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@600;700;800;900&family=Inter+Tight:wght@600;700;800;900&display=swap" rel="stylesheet">
   <link rel="icon" type="image/svg+xml" href="logo-bars.svg" />
   <!-- Analytics/Clarity loaded via consent in script.js -->
+  <style>
+    /* Compact three-column layout for Grade / Drivers / Optimization */
+    .grade-grid{display:grid;grid-template-columns:1.2fr 1fr;gap:14px;align-items:stretch;margin-bottom:12px}
+    /* Place Grade on the left spanning two rows, Drivers on top-right, Rent Optimizer under Drivers */
+    .grade-grid > .gdetails:nth-child(1){grid-column:1;grid-row:1 / span 2}
+    .grade-grid > .gdetails:nth-child(2){grid-column:2;grid-row:1}
+    .grade-grid > .gdetails:nth-child(3){grid-column:2;grid-row:2}
+    @media (max-width:1000px){
+      .grade-grid{grid-template-columns:1fr}
+      .grade-grid > .gdetails:nth-child(1),
+      .grade-grid > .gdetails:nth-child(2),
+      .grade-grid > .gdetails:nth-child(3){grid-column:auto;grid-row:auto}
+    }
+    .grade-grid .gdetails{background:#fff;border:1px solid #e8ecf4;border-radius:12px;padding:8px}
+    .grade-grid .gdetails > summary{padding:6px 2px}
+    /* Make driver card badges & texts smaller */
+    .driver-card .status-badge{top:10px;right:10px;padding:3px 7px;font-size:.64em;letter-spacing:.35px;border-radius:5px}
+    .driver-card .card-value{font-size:1.6em;margin-bottom:10px}
+    .driver-card .progress-bar{height:8px;margin-bottom:10px}
+    .driver-card .target-label{font-size:.75em}
+    .driver-card .delta-badge{font-size:.8em}
+    /* Center Clear All button; remove old share area */
+    .comparison-actions{justify-content:center !important}
+    .comparison-actions .actions-left{display:none !important}
+  </style>
 </head>
 <body class="fontB">
   <header class="nav">
@@ -203,14 +228,14 @@
 
             <div class="wstep" id="step-2">
               <h3 class="step-title">Step 2 · Financing</h3>
-              <label><span id="downLabel">Down Payment (%)</span>
+              <label><span id="downLabel">Down Payment (%)</span> <span id="downInfo" class="info" style="display:none">i<span class="itip">Applied to the amount remaining after pre‑handover payments.</span></span>
                 <div class="pair has-unit">
                   <input type="range" id="downPayment" min="20" max="100" step="1" value="25" />
                   <input type="number" id="downPaymentNum" min="0" max="100" step="1" value="25" inputmode="decimal" />
                   <span class="u">%</span>
                 </div>
                 <div class="hint"><span id="downPaymentVal">25%</span></div>
-                <div class="hint" id="downApplyHint" style="display:none">Applied to the amount remaining after pre‑handover payments.</div>
+                <div class="hint" id="downApplyHint" style="display:none"></div>
               </label>
               <label>Loan Term (years)
                 <input type="range" id="loanTerm" min="5" max="30" step="1" value="25" />
@@ -341,107 +366,132 @@
     <h2>Your Investment Analysis</h2>
     <details class="disclose" open>
       <summary>Input Summary</summary>
-      <div class="inp-grid">
-      <div class="card">
-        <div class="head-row"><h3>Property</h3><a href="#calcStart" class="edit goto-step" data-step="1">Edit</a></div>
-        <ul class="list small">
-          <li><span>Project</span><strong id="sumProject">—</strong></li>
-          <li><span>Status</span><strong id="sumStatus">—</strong></li>
-          <li><span>Type</span><strong id="sumType">—</strong></li>
-          <li><span>Community</span><strong id="sumCommunity">—</strong></li>
-          <li><span>Beds/Baths</span><strong id="sumBedsBaths">—</strong></li>
-          <li><span>Size</span><strong id="sumSize">—</strong></li>
-          <li><span>Price</span><strong id="sumPrice">—</strong></li>
-        </ul>
-      </div>
-      <div class="card">
-        <div class="head-row"><h3>Financing</h3><a href="#calcStart" class="edit goto-step" data-step="2">Edit</a></div>
-        <ul class="list small">
-          <li><span>Down %</span><strong id="sumDown">—</strong></li>
-          <li><span>Agent %</span><strong id="sumAgent">—</strong></li>
-          <li><span>DLD</span><strong id="sumDLD">—</strong></li>
-          <li><span>Term</span><strong id="sumTerm">—</strong></li>
-          <li><span>Rate</span><strong id="sumRate">—</strong></li>
-          <li><span>Additional</span><strong id="sumAddCosts">—</strong></li>
-          <li class="total"><span>Loan amount</span><strong id="sumLoanAmt">—</strong></li>
-          <li class="total"><span>Total initial</span><strong id="sumTotalInitial">—</strong></li>
-        </ul>
-      </div>
-      <div class="card">
-        <div class="head-row"><h3>Revenue</h3><a href="#calcStart" class="edit goto-step" data-step="3">Edit</a></div>
-        <ul class="list small">
-          <li><span>Rent</span><strong id="sumRent">—</strong></li>
-          <li><span>Extra</span><strong id="sumInc">—</strong></li>
-          <li><span>Vacancy</span><strong id="sumVac">—</strong></li>
-          <li class="total"><span>Gross / month</span><strong id="sumGrossMo">—</strong></li>
-          <li class="total"><span>Gross / year</span><strong id="sumGrossYr">—</strong></li>
-        </ul>
-      </div>
-      <div class="card">
-        <div class="head-row"><h3>Expenses</h3><a href="#calcStart" class="edit goto-step" data-step="4">Edit</a></div>
-        <ul class="list small">
-          <li><span>Mgmt %</span><strong id="sumMgmt">—</strong></li>
-          <li><span>Maint %</span><strong id="sumMaint">—</strong></li>
-          <li><span>Insurance</span><strong id="sumIns">—</strong></li>
-          <li><span>Other</span><strong id="sumOther">—</strong></li>
-          <li class="total"><span>Opex / month</span><strong id="sumOpexMo">—</strong></li>
-          <li class="total"><span>Opex / year</span><strong id="sumOpexYr">—</strong></li>
-        </ul>
-      </div>
-      </div>
-      <div class="comparison-actions save-float">
-        <button class="btn ghost sm" id="saveDealBtn" style="display:none;">Save for comparison</button>
+      <div class="input-summary-section">
+        <div class="section-header">
+          <h2>Input Summary</h2>
+          <button class="collapse-btn" id="inpCollapseBtn">^</button>
+        </div>
+        <div class="input-cards-grid" id="inputCardsGrid">
+          <!-- Property -->
+          <div class="input-card">
+            <div class="card-header">
+              <span class="card-title">PROPERTY</span>
+              <a href="#calcStart" class="edit-button goto-step" data-step="1">Edit</a>
+            </div>
+            <div class="key-metric">
+              <div class="metric-label">Price</div>
+              <div class="metric-value" id="icPrice">—</div>
+            </div>
+            <div class="details-list">
+              <div class="detail-row"><span class="detail-label">Type</span><span class="detail-value" id="icType">—</span></div>
+              <div class="detail-row"><span class="detail-label">Beds</span><span class="detail-value" id="icBeds">—</span></div>
+              <div class="detail-row"><span class="detail-label">Size</span><span class="detail-value" id="icSize">—</span></div>
+              <div class="detail-row"><span class="detail-label">Status</span><span class="detail-value" id="icStatus">—</span></div>
+            </div>
+          </div>
+          <!-- Financing -->
+          <div class="input-card">
+            <div class="card-header">
+              <span class="card-title">FINANCING</span>
+              <a href="#calcStart" class="edit-button goto-step" data-step="2">Edit</a>
+            </div>
+            <div class="key-metric">
+              <div class="metric-label">Total Initial</div>
+              <div class="metric-value" id="icTotalInitial">—</div>
+            </div>
+            <div class="details-list">
+              <div class="detail-row"><span class="detail-label">Down</span><span class="detail-value" id="icDown">—</span></div>
+              <div class="detail-row"><span class="detail-label">Loan</span><span class="detail-value" id="icLoan">—</span></div>
+              <div class="detail-row"><span class="detail-label">Rate</span><span class="detail-value" id="icRate">—</span></div>
+              <div class="detail-row"><span class="detail-label">Term</span><span class="detail-value" id="icTerm">—</span></div>
+            </div>
+          </div>
+          <!-- Revenue -->
+          <div class="input-card">
+            <div class="card-header">
+              <span class="card-title">REVENUE</span>
+              <a href="#calcStart" class="edit-button goto-step" data-step="3">Edit</a>
+            </div>
+            <div class="key-metric">
+              <div class="metric-label">Monthly Rent</div>
+              <div class="metric-value" id="icRent">—</div>
+            </div>
+            <div class="details-list">
+              <div class="detail-row"><span class="detail-label">Annual</span><span class="detail-value" id="icAnnualRent">—</span></div>
+              <div class="detail-row"><span class="detail-label">Vacancy</span><span class="detail-value" id="icVacancy">—</span></div>
+              <div class="detail-row"><span class="detail-label">Extra</span><span class="detail-value" id="icExtra">—</span></div>
+              <div class="detail-row"><span class="detail-label">Gross</span><span class="detail-value" id="icGross">—</span></div>
+            </div>
+          </div>
+          <!-- Expenses -->
+          <div class="input-card">
+            <div class="card-header">
+              <span class="card-title">EXPENSES</span>
+              <a href="#calcStart" class="edit-button goto-step" data-step="4">Edit</a>
+            </div>
+            <div class="key-metric">
+              <div class="metric-label">Monthly Opex</div>
+              <div class="metric-value" id="icOpexMo">—</div>
+            </div>
+            <div class="details-list">
+              <div class="detail-row"><span class="detail-label">Annual</span><span class="detail-value" id="icOpexYr">—</span></div>
+              <div class="detail-row"><span class="detail-label">Mgmt</span><span class="detail-value" id="icMgmt">—</span></div>
+              <div class="detail-row"><span class="detail-label">Maint</span><span class="detail-value" id="icMaint">—</span></div>
+              <div class="detail-row"><span class="detail-label">Insurance</span><span class="detail-value" id="icIns">—</span></div>
+            </div>
+          </div>
+        </div>
       </div>
     </details>
     <div class="section-sep" aria-hidden="true"></div>
     <!-- Enhanced Grade + Driver cards -->
-      <details class="gdetails" open>
-        <summary>Grade overview</summary>
-        <div class="grade-enhanced" id="gradeEnhanced">
-        <div class="ge-circle">
-          <svg class="ge-svg" width="220" height="220" viewBox="0 0 220 220" aria-hidden="true">
-            <defs>
-              <linearGradient id="geGradient" x1="0%" y1="0%" x2="100%" y2="0%">
-                <stop offset="0%" stop-color="#10b981" />
-                <stop offset="100%" stop-color="#059669" />
-              </linearGradient>
-              <linearGradient id="geGradientWarn" x1="0%" y1="0%" x2="100%" y2="0%">
-                <stop offset="0%" stop-color="#f59e0b" />
-                <stop offset="100%" stop-color="#d97706" />
-              </linearGradient>
-              <linearGradient id="geGradientBad" x1="0%" y1="0%" x2="100%" y2="0%">
-                <stop offset="0%" stop-color="#ef4444" />
-                <stop offset="100%" stop-color="#b91c1c" />
-              </linearGradient>
-            </defs>
-            <!-- Background track -->
-            <circle class="ge-track" cx="110" cy="110" r="90"></circle>
-            <!-- Animated progress circle -->
-            <circle class="ge-progress" id="geProgress" cx="110" cy="110" r="90"></circle>
-          </svg>
-          <div class="ge-center">
-            <div class="ge-letter" id="geLetter">A</div>
-            <div class="ge-score" id="geScore">85/100</div>
+      <div class="grade-grid">
+        <details class="gdetails" open>
+          <summary>Grade overview</summary>
+          <div class="grade-enhanced" id="gradeEnhanced">
+            <div class="ge-circle">
+              <svg class="ge-svg" width="220" height="220" viewBox="0 0 220 220" aria-hidden="true">
+                <defs>
+                  <linearGradient id="geGradient" x1="0%" y1="0%" x2="100%" y2="0%">
+                    <stop offset="0%" stop-color="#10b981" />
+                    <stop offset="100%" stop-color="#059669" />
+                  </linearGradient>
+                  <linearGradient id="geGradientWarn" x1="0%" y1="0%" x2="100%" y2="0%">
+                    <stop offset="0%" stop-color="#f59e0b" />
+                    <stop offset="100%" stop-color="#d97706" />
+                  </linearGradient>
+                  <linearGradient id="geGradientBad" x1="0%" y1="0%" x2="100%" y2="0%">
+                    <stop offset="0%" stop-color="#ef4444" />
+                    <stop offset="100%" stop-color="#b91c1c" />
+                  </linearGradient>
+                </defs>
+                <circle class="ge-track" cx="110" cy="110" r="90"></circle>
+                <circle class="ge-progress" id="geProgress" cx="110" cy="110" r="90"></circle>
+              </svg>
+              <div class="ge-center">
+                <div class="ge-letter" id="geLetter">—</div>
+                <div class="ge-score" id="geScore">—/100</div>
+              </div>
+            </div>
+            <div class="ge-badge" id="geBadge" style="display:none">
+              <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true">
+                <path fill="currentColor" d="M12 17.27l6.18 3.73-1.64-7.03L21.9 9.24l-7.19-.61L12 2 9.29 8.63 2.1 9.24l5.36 4.73L5.82 21z"/>
+              </svg>
+              <span id="geBadgeText">Excellent Investment</span>
+            </div>
+            <h3 class="ge-headline" id="geHeadline">Deal outlook</h3>
+            <p class="ge-desc" id="geDesc">Run an analysis to see outlook and drivers.</p>
           </div>
-        </div>
-        <div class="ge-badge" id="geBadge">
-          <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true">
-            <path fill="currentColor" d="M12 17.27l6.18 3.73-1.64-7.03L21.9 9.24l-7.19-.61L12 2 9.29 8.63 2.1 9.24l5.36 4.73L5.82 21z"/>
-          </svg>
-          <span>Excellent Investment</span>
-        </div>
-        <h3 class="ge-headline" id="geHeadline">Deal outlook</h3>
-        <p class="ge-desc" id="geDesc">Summary based on core drivers. See Driver cards below for more detail.</p>
+        </details>
+        <details class="gdetails" open>
+          <summary>Driver cards</summary>
+          <ul id="gcContrib" class="gcontrib micro" style="margin-top:8px"></ul>
+        </details>
+        <details class="gdetails" open>
+          <summary>Rent Optimization</summary>
+          <div class="driver-action" id="rentActionHost"></div>
+        </details>
       </div>
-      </details>
-      <details class="gdetails" open>
-        <summary>Driver cards</summary>
-        <ul id="gcContrib" class="gcontrib micro" style="margin-top:8px"></ul>
-      </details>
-      <details class="gdetails" open>
-        <summary>Rent Optimization</summary>
-        <div class="driver-action" id="rentActionHost"></div>
-      </details>
 
     <!-- Segmented pill preview -->
     <div class="grade-box card" style="display:none">
@@ -486,39 +536,28 @@
     <details class="gdetails deal-comp" open>
       <summary>Deal comparison</summary>
       <div class="deal-comparison-wrapper">
-        <div class="comparison-header">
-          <h3>Deal comparison</h3>
-          <p class="muted small">Compare up to 3 properties side‑by‑side</p>
-        </div>
         
-        <div class="saved-deals-container" id="savedDealsContainer">
-          <p class="no-deals-message" id="noDealsMessage">
-            Complete an analysis and click “Save for comparison” to start.
-          </p>
-        </div>
-        
-        
-        
-        <div class="comparison-table-wrapper" id="comparisonTableWrapper" style="display:none;">
-          <table class="comparison-table">
-            <thead>
-              <tr>
-                <th class="metric-header">Metric</th>
-                <th class="deal-header" id="dealHeader1">Deal 1</th>
-                <th class="deal-header" id="dealHeader2">Deal 2</th>
-                <th class="deal-header" id="dealHeader3">Deal 3</th>
-              </tr>
-            </thead>
-            <tbody id="comparisonTableBody">
-            </tbody>
-          </table>
-          
-          <div class="comparison-actions comp-float">
-            <button class="btn ghost sm" id="saveDealBtn2" style="display:none;">Save for comparison</button>
-            <button class="btn ghost sm" id="clearComparisonBtn">Clear all deals</button>
+        <!-- Enhanced Matrix Section -->
+        <div class="deal-comparison-section" id="dealComparisonSection">
+          <div class="comparison-header">
+            <div class="header-left">
+              <h2 class="comparison-title">Deal Comparison</h2>
+              <p class="comparison-subtitle">Compare up to 3 properties side-by-side</p>
+            </div>
+            <div class="quick-filters">
+              <button class="filter-btn active" data-filter="all">All Metrics</button>
+              <button class="filter-btn" data-filter="key">Key Metrics</button>
+              <button class="filter-btn" data-filter="financial">Financial</button>
+              <button class="filter-btn" data-filter="property">Property</button>
+            </div>
+          </div>
+          <div class="comparison-matrix" id="comparisonMatrix" data-filter="all">
+            <!-- Filled by JS -->
+          </div>
+          <div class="comparison-actions">
+            <button class="btn" id="cmpClearBtn">Clear All Deals</button>
           </div>
         </div>
-        <div id="cmpSummary" class="cmp-summary"></div>
       </div>
     </details>
 
