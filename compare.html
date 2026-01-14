@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Compare Deals · Smart Property Analyzer - Dubai</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body class="fontB" id="comparePage">
+  <header class="nav">
+    <div class="wrap">
+      <a href="index.html" class="brand"><img class="brand-logo" src="logo-bars.svg" alt="" /><span>Smart Property Analyzer - Dubai</span></a>
+      <nav class="menu">
+        <a href="index.html">Back to Analysis</a>
+      </nav>
+    </div>
+  </header>
+
+  <main class="wrap results">
+    <h2>Deal Comparison</h2>
+    <p class="section-sub">You can compare up to 3 saved deals side-by-side.</p>
+    <div class="deal-comparison-section" id="dealComparisonSection">
+      <div class="comparison-header">
+        <div class="header-left">
+          <h2 class="comparison-title">Compare</h2>
+          <p class="comparison-subtitle">Saved deals from your analysis</p>
+        </div>
+        <div class="quick-filters">
+          <button class="filter-btn active" data-filter="all">All Metrics</button>
+          <button class="filter-btn" data-filter="key">Key Metrics</button>
+          <button class="filter-btn" data-filter="financial">Financial</button>
+          <button class="filter-btn" data-filter="property">Property</button>
+        </div>
+      </div>
+      <div class="comparison-matrix" id="comparisonMatrix"></div>
+      <div class="comparison-actions">
+        <button class="btn" id="cmpClearBtn">Clear All Deals</button>
+      </div>
+    </div>
+    <div class="center" style="margin-top:14px">
+      <a class="btn ghost" href="index.html">Back to analysis</a>
+    </div>
+  </main>
+
+  <script src="script.js"></script>
+</body>
+</html>

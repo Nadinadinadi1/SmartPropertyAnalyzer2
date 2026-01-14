@@ -17,16 +17,12 @@
   <!-- Analytics/Clarity loaded via consent in script.js -->
   <style>
     /* Compact three-column layout for Grade / Drivers / Optimization */
-    .grade-grid{display:grid;grid-template-columns:1.2fr 1fr;gap:14px;align-items:stretch;margin-bottom:12px}
-    /* Place Grade on the left spanning two rows, Drivers on top-right, Rent Optimizer under Drivers */
-    .grade-grid > .gdetails:nth-child(1){grid-column:1;grid-row:1 / span 2}
-    .grade-grid > .gdetails:nth-child(2){grid-column:2;grid-row:1}
-    .grade-grid > .gdetails:nth-child(3){grid-column:2;grid-row:2}
+    .grade-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;align-items:stretch;margin-bottom:12px}
+    /* Make panels equal height by stretching inner content */
+    .grade-grid .gdetails{display:flex;flex-direction:column}
+    .grade-grid .gdetails > *:not(summary){flex:1;display:block}
     @media (max-width:1000px){
       .grade-grid{grid-template-columns:1fr}
-      .grade-grid > .gdetails:nth-child(1),
-      .grade-grid > .gdetails:nth-child(2),
-      .grade-grid > .gdetails:nth-child(3){grid-column:auto;grid-row:auto}
     }
     .grade-grid .gdetails{background:#fff;border:1px solid #e8ecf4;border-radius:12px;padding:8px}
     .grade-grid .gdetails > summary{padding:6px 2px}
@@ -39,6 +35,190 @@
     /* Center Clear All button; remove old share area */
     .comparison-actions{justify-content:center !important}
     .comparison-actions .actions-left{display:none !important}
+    /* Grade: darker brand-blue overrides */
+    .grade-enhanced{background:linear-gradient(135deg,#c7d2fe 0%, #93c5fd 50%, #ffffff 100%)}
+    .ge-letter{color:#0b1e47}
+    .ge-badge{background:#0b1e47;box-shadow:0 6px 24px rgba(11,30,71,.35)}
+    .grade-enhanced.ge-good .ge-letter{color:#0b1e47}
+    .grade-enhanced.ge-good .ge-badge{background:#0b1e47;box-shadow:0 6px 24px rgba(11,30,71,.35)}
+    /* Grade address meta */
+    .ge-address{margin-top:8px;color:#64748b;font-weight:700}
+    /* Compact grade card to align with Drivers height */
+    .grade-enhanced{padding:28px 22px}
+    .ge-circle{width:200px;height:200px}
+    .ge-svg{width:200px;height:200px}
+    .ge-letter{font-size:3.8em}
+    .ge-badge{padding:10px 18px;font-size:1em}
+    .ge-headline{margin-top:18px}
+    /* Themed backgrounds by grade for accessibility */
+    .grade-enhanced.theme-A{background:linear-gradient(135deg,#c7d2fe 0%, #93c5fd 50%, #ffffff 100%)}
+    .grade-enhanced.theme-B{background:linear-gradient(135deg,#dcfce7 0%, #bbf7d0 50%, #ffffff 100%)}
+    .grade-enhanced.theme-C{background:linear-gradient(135deg,#fef9c3 0%, #fde68a 50%, #ffffff 100%)}
+    .grade-enhanced.theme-D{background:linear-gradient(135deg,#ffedd5 0%, #fdba74 50%, #ffffff 100%)}
+    .grade-enhanced.theme-E,
+    .grade-enhanced.theme-F{background:linear-gradient(135deg,#fee2e2 0%, #fecaca 50%, #ffffff 100%)}
+    /* Theme-specific letter and badge colors (more specific selector to override defaults) */
+    .grade-enhanced.theme-A .ge-letter{color:#0b1e47}
+    .grade-enhanced.theme-B .ge-letter{color:#065f46}
+    .grade-enhanced.theme-C .ge-letter{color:#92400e}
+    .grade-enhanced.theme-D .ge-letter{color:#9a3412}
+    .grade-enhanced.theme-E .ge-letter,
+    .grade-enhanced.theme-F .ge-letter{color:#991b1b}
+    .grade-enhanced.theme-A .ge-badge{background:#0b1e47;box-shadow:0 6px 24px rgba(11,30,71,.35)}
+    .grade-enhanced.theme-B .ge-badge{background:#10b981;box-shadow:0 6px 24px rgba(16,185,129,.35)}
+    .grade-enhanced.theme-C .ge-badge{background:#f59e0b;box-shadow:0 6px 24px rgba(245,158,11,.35)}
+    .grade-enhanced.theme-D .ge-badge{background:#ea580c;box-shadow:0 6px 24px rgba(234,88,12,.35)}
+    .grade-enhanced.theme-E .ge-badge,
+    .grade-enhanced.theme-F .ge-badge{background:#ef4444;box-shadow:0 6px 24px rgba(239,68,68,.35)}
+    /* Driver cards color mapping aligned with grade: excellent=blue, good=green, warning=orange */
+    .driver-card.excellent{border-color:#1d4ed8;background:linear-gradient(135deg,#eff6ff 0%, #ffffff 100%)}
+    .driver-card.excellent .status-badge{background:#1d4ed8;color:#fff}
+    .driver-card.excellent .progress-fill{background:linear-gradient(to right,#1d4ed8,#1e40af)}
+    .driver-card.good{border-color:#10b981;background:linear-gradient(135deg,#f0fdf4 0%, #ffffff 100%)}
+    .driver-card.good .status-badge{background:#10b981;color:#fff}
+    .driver-card.good .progress-fill{background:linear-gradient(to right,#10b981,#059669)}
+    .driver-card.warning{border-color:#f59e0b;background:linear-gradient(135deg,#fffbeb 0%, #ffffff 100%)}
+    .driver-card.warning .status-badge{background:#f59e0b;color:#fff}
+    .driver-card.warning .progress-fill{background:linear-gradient(to right,#f59e0b,#d97706)}
+    .driver-card.bad{border-color:#ef4444;background:linear-gradient(135deg,#fee2e2 0%, #ffffff 100%)}
+    .driver-card.bad .status-badge{background:#ef4444;color:#fff}
+    .driver-card.bad .progress-fill{background:linear-gradient(to right,#ef4444,#b91c1c)}
+    /* Rent Optimization: letter-colored "New grade" pill */
+    .action-grade .grade-pill.to.gp-A{background:#1d4ed8}
+    .action-grade .grade-pill.to.gp-B{background:#10b981}
+    .action-grade .grade-pill.to.gp-C{background:#f59e0b}
+    .action-grade .grade-pill.to.gp-D{background:#ea580c}
+    .action-grade .grade-pill.to.gp-E,
+    .action-grade .grade-pill.to.gp-F{background:#ef4444}
+    /* Also color the "from" badge by current grade letter */
+    .action-grade .grade-pill.from.gp-A{background:#1d4ed8}
+    .action-grade .grade-pill.from.gp-B{background:#10b981}
+    .action-grade .grade-pill.from.gp-C{background:#f59e0b}
+    .action-grade .grade-pill.from.gp-D{background:#ea580c}
+    .action-grade .grade-pill.from.gp-E,
+    .action-grade .grade-pill.from.gp-F{background:#ef4444}
+    /* Action badge "ok" (no action needed) */
+    .driver-card-action .action-badge.ok{background:#1d4ed8}
+    /* Yield delta styling */
+    .driver-card-action .metric-delta{display:block;font-size:.8em;font-weight:800;margin-top:2px}
+    .driver-card-action .metric-delta.delta-pos{color:#166534}
+    .driver-card-action .metric-delta.delta-neg{color:#b91c1c}
+    /* Greyer calculator inputs */
+    .wizard input[type="text"],
+    .wizard input[type="number"],
+    .wizard select{
+      background:#f3f4f6;
+      border:1px solid #e5e7eb;
+      color:#0f172a;
+    }
+    .wizard input[type="text"]::placeholder,
+    .wizard input[type="number"]::placeholder{
+      color:#94a3b8;
+    }
+    .wizard input[type="text"]:focus,
+    .wizard input[type="number"]:focus,
+    .wizard select:focus{
+      outline:none;
+      border-color:#cbd5e1;
+      box-shadow:none;
+      background:#eef2f7;
+    }
+    /* Market benchmark (old) layout */
+    .market-bench{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}
+    @media (max-width:1000px){.market-bench{grid-template-columns:1fr}}
+    .mb-card{background:#fff;border:1px solid #e8ecf4;border-radius:12px;padding:14px}
+    .mb-title{font-weight:800;color:#1e293b;margin-bottom:8px}
+    .mb-comps{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:6px}
+    .mb-comp{background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:8px;font-weight:600;color:#334155}
+    .mb-foot{margin-top:8px;color:#94a3b8;font-size:.85em}
+    .mb-mode{display:flex;gap:8px;margin-bottom:8px;align-items:center;flex-wrap:wrap}
+    .mb-mode .mb-toggle{padding:6px 10px;border:1px solid #e2e8f0;background:#fff;border-radius:8px;font-weight:700;color:#334155;cursor:pointer}
+    .mb-mode .mb-toggle.active{background:#eef2ff;border-color:#c7d2fe;color:#1e3a8a}
+    .mb-paste{display:none;margin-top:8px}
+    .mb-paste textarea{width:100%;min-height:90px;border:1px solid #e2e8f0;border-radius:8px;padding:8px;font-family:inherit;background:#f8fafc}
+    .mb-paste .mb-apply{margin-top:6px;padding:8px 12px;border:none;border-radius:8px;background:#1d4ed8;color:#fff;font-weight:700;cursor:pointer}
+    .mb-metric{display:flex;justify-content:space-between;margin:6px 0}
+    .mb-label{color:#64748b;font-weight:700}
+    .mb-value{font-weight:900;color:#0b1e47}
+    .mb-badge{display:inline-block;margin-top:6px;background:#eef2ff;color:#1e3a8a;padding:4px 8px;border-radius:999px;font-weight:800;font-size:.85em}
+    .mb-spark{height:8px;background:#e2e8f0;border-radius:999px;overflow:hidden;margin-top:8px}
+    .mb-fill{height:100%;background:linear-gradient(90deg,#1d4ed8,#1e40af)}
+    .mb-list{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:6px}
+    .mb-note{margin-top:8px;color:#64748b;font-size:.85em}
+    /* Market Position + Risk (new) */
+    .mbx-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+    @media (max-width:1000px){.mbx-grid{grid-template-columns:1fr}}
+    .mp-card,.risk-card{background:#fff;border:2px solid #e2e8f0;border-radius:16px;overflow:hidden;padding:16px;transition:all .2s}
+    .mp-card:hover,.risk-card:hover{transform:translateY(-2px);box-shadow:0 12px 24px rgba(0,0,0,.12)}
+    .mp-head{background:transparent;color:#1e293b;padding:0 0 8px 0;display:flex;justify-content:space-between;align-items:center}
+    .mp-title{font-weight:900;letter-spacing:.2px;color:#0b1e47}
+    .mp-sub{font-size:.85em;opacity:.95;font-weight:700;color:#64748b}
+    .mp-body{padding:16px;display:grid;grid-template-columns:1fr 1fr;gap:10px}
+    @media (max-width:700px){.mp-body{grid-template-columns:1fr}}
+    .mp-row{display:flex;justify-content:space-between;align-items:center;background:#fff;border-radius:12px;padding:12px 14px;border:2px solid #e2e8f0}
+    .mp-row.good{border-color:#10b981;background:linear-gradient(135deg,#f0fdf4 0%, #ffffff 100%)}
+    .mp-row.bad{border-color:#ef4444;background:linear-gradient(135deg,#fee2e2 0%, #ffffff 100%)}
+    .mp-row.neutral{border-color:#f59e0b;background:linear-gradient(135deg,#fffbeb 0%, #ffffff 100%)}
+    .mp-l{font-size:.85em;color:#475569;font-weight:800;display:flex;align-items:center;gap:6px}
+    .mp-v{font-weight:900;color:#0b1e47;text-align:right}
+    .mp-cmp{display:inline-block;border-radius:999px;padding:3px 8px;font-size:.72em;font-weight:800;margin-top:4px}
+    .mp-cmp.good{background:#d1fae5;color:#065f46}.mp-cmp.bad{background:#fee2e2;color:#991b1b}.mp-cmp.neutral{background:#fef3c7;color:#92400e}
+    .mp-verdict{margin-top:6px;border:2px solid #f59e0b;background:#fff7ed;border-radius:10px;padding:12px;grid-column:1 / -1}
+    .mp-verdict .t{font-size:.72em;text-transform:uppercase;color:#92400e;font-weight:900;margin-bottom:6px;letter-spacing:.5px}
+    .mp-src{margin-top:12px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:10px;text-align:center;padding:10px;color:#64748b;font-size:.8em;font-weight:700;display:flex;justify-content:center;gap:6px;align-items:center}
+    .risk-head{background:transparent;color:#1e293b;padding:0 0 8px 0;display:flex;justify-content:space-between;align-items:center}
+    .risk-title{font-weight:900;color:#0b1e47}
+    .risk-badge{padding:5px 12px;border-radius:8px;font-weight:900;font-size:.75em;letter-spacing:.3px}
+    .risk-badge.low{background:#d1fae5;color:#065f46}.risk-badge.medium{background:#fef3c7;color:#92400e}.risk-badge.medium-high{background:#fed7aa;color:#9a3412}.risk-badge.high{background:#fecaca;color:#991b1b}
+    .risk-body{padding:16px}
+    .risk-item{border:2px solid #e2e8f0;border-radius:12px;padding:12px 14px;margin:8px 0;background:#fff}
+    .risk-item.critical{border-color:#ef4444;background:linear-gradient(135deg,#fee2e2 0%, #ffffff 100%)}
+    .risk-item.warning{border-color:#f59e0b;background:linear-gradient(135deg,#fffbeb 0%, #ffffff 100%)}
+    .risk-item.good{border-color:#10b981;background:linear-gradient(135deg,#f0fdf4 0%, #ffffff 100%)}
+    .risk-item .h{display:flex;align-items:center;gap:6px;font-weight:900;color:#111827}
+    .risk-item .d{color:#475569;font-size:.92em;margin-top:2px}
+    /* Overrides per request */
+    /* 1) Driver cards: 2 columns on desktop */
+    .gcontrib.micro{display:grid !important;grid-template-columns:repeat(2,minmax(0,1fr)) !important;gap:12px !important}
+    @media (max-width:1000px){ .gcontrib.micro{grid-template-columns:repeat(2,minmax(0,1fr))} }
+    @media (max-width:520px){ .gcontrib.micro{grid-template-columns:1fr} }
+    /* 2) Market Position & Risk stacked + compact */
+    .mbx-grid{grid-template-columns:1fr}
+    .mp-head{padding:10px 12px}
+    .mp-title{font-size:.95em}
+    .mp-sub{font-size:.78em}
+    .mp-body{padding:12px}
+    .mp-row{padding:9px 10px;margin:6px 0}
+    .mp-l{font-size:.8em}
+    .mp-v{font-size:.95em}
+    .mp-cmp{font-size:.68em;padding:2px 7px}
+    .mp-verdict{padding:10px}
+    .mp-verdict .t{font-size:.68em;margin-bottom:4px}
+    .mp-verdict .x{font-size:.85em}
+    .mp-src{padding:8px;font-size:.75em}
+    .risk-head{padding:10px 12px}
+    .risk-title{font-size:.95em}
+    .risk-badge{font-size:.7em;padding:4px 9px}
+    .risk-body{padding:12px}
+    .risk-item{padding:9px 10px;margin:6px 0}
+    .risk-item .d{font-size:.88em}
+    /* 3) Rent Optimization – match driver card look & type scale */
+    .driver-card-action{background:#fff !important;border:2px solid #e2e8f0 !important;border-radius:16px !important;padding:16px !important;box-shadow:none !important}
+    .driver-card-action:hover{transform:translateY(-2px);box-shadow:0 12px 24px rgba(0,0,0,.12)}
+    .driver-card-action .action-header{margin-bottom:10px}
+    .driver-card-action .action-title-group h4{font-size:1em !important;color:#1e293b !important;font-weight:800}
+    .driver-card-action .action-title-group p{font-size:.82em !important;color:#64748b !important;font-weight:600;margin:0}
+    .driver-card-action .action-comparison{background:transparent;border-radius:12px;padding:8px}
+    .driver-card-action .metric-label{font-size:.78em !important;color:#64748b !important}
+    .driver-card-action .metric-value{font-size:1.4em !important;color:#0b1e47 !important}
+    .driver-card-action .metric-sub{font-size:.8em !important;color:#64748b !important}
+    .driver-card-action .action-cta{background:#f8fafc;border:2px dashed #e2e8f0;border-radius:12px}
+    .driver-card-action .cta-text{font-size:.88em !important;color:#475569 !important}
+    .driver-card-action .action-button{font-size:.9em !important;border-radius:8px}
+    /* Current/Target tiles */
+    .driver-card-action .action-metric{background:#fff;border:2px solid #e2e8f0;border-radius:12px;padding:12px 14px;box-shadow:0 4px 10px rgba(15,23,42,.06)}
+    .driver-card-action .action-metric:hover{box-shadow:0 8px 18px rgba(15,23,42,.08)}
+    .driver-card-action .action-arrow{font-size:1.6em;color:#94a3b8;padding:0 12px}
   </style>
 </head>
 <body class="fontB">
@@ -154,56 +334,54 @@
                   <span class="chip-mini warn" id="chipWarn" style="display:none">Check totals</span>
                 </div>
               </div>
-              <div class="grid-2 cols">
-                <label>Property Type
-                  <select id="propertyType">
-                    <option value="apartment">Apartment</option>
-                    <option value="villa">Villa</option>
-                    <option value="townhouse">Townhouse</option>
-                    <option value="studio">Studio</option>
-                  </select>
-                </label>
-                <label>Community
-                  <select id="community">
-                    <option value="">Select community</option>
-                    <option>Dubai Marina</option>
-                    <option>Downtown Dubai</option>
-                    <option>Business Bay</option>
-                    <option>Jumeirah Beach Residence (JBR)</option>
-                    <option>Palm Jumeirah</option>
-                    <option>Jumeirah Lakes Towers (JLT)</option>
-                    <option>Dubai Hills Estate</option>
-                    <option>Arabian Ranches</option>
-                    <option>DAMAC Hills</option>
-                    <option>Motor City</option>
-                    <option>Jumeirah Village Circle (JVC)</option>
-                    <option>Jumeirah Village Triangle (JVT)</option>
-                    <option>Mohammed Bin Rashid City (MBR)</option>
-                    <option>Dubai Silicon Oasis</option>
-                    <option>Dubai Sports City</option>
-                    <option>Al Barsha</option>
-                    <option>Al Furjan</option>
-                    <option>Discovery Gardens</option>
-                    <option>The Springs</option>
-                    <option>The Greens</option>
-                    <option>The Lakes</option>
-                    <option>Emirates Hills</option>
-                    <option>Dubai Creek Harbour</option>
-                    <option>Bluewaters Island</option>
-                    <option>City Walk</option>
-                    <option>Meydan</option>
-                    <option>Town Square</option>
-                    <option>Remraam</option>
-                    <option>Mudon</option>
-                    <option>Mira (Reem)</option>
-                    <option>Serena</option>
-                    <option>IMPZ / Dubai Production City</option>
-                    <option>International City</option>
-                    <option>Mirdif</option>
-                    <option>Deira</option>
-                  </select>
-                </label>
-              </div>
+              <label>Property Type
+                <select id="propertyType">
+                  <option value="apartment">Apartment</option>
+                  <option value="villa">Villa</option>
+                  <option value="townhouse">Townhouse</option>
+                  <option value="studio">Studio</option>
+                </select>
+              </label>
+              <label>Community
+                <select id="community">
+                  <option value="">Select community</option>
+                  <option>Dubai Marina</option>
+                  <option>Downtown Dubai</option>
+                  <option>Business Bay</option>
+                  <option>Jumeirah Beach Residence (JBR)</option>
+                  <option>Palm Jumeirah</option>
+                  <option>Jumeirah Lakes Towers (JLT)</option>
+                  <option>Dubai Hills Estate</option>
+                  <option>Arabian Ranches</option>
+                  <option>DAMAC Hills</option>
+                  <option>Motor City</option>
+                  <option>Jumeirah Village Circle (JVC)</option>
+                  <option>Jumeirah Village Triangle (JVT)</option>
+                  <option>Mohammed Bin Rashid City (MBR)</option>
+                  <option>Dubai Silicon Oasis</option>
+                  <option>Dubai Sports City</option>
+                  <option>Al Barsha</option>
+                  <option>Al Furjan</option>
+                  <option>Discovery Gardens</option>
+                  <option>The Springs</option>
+                  <option>The Greens</option>
+                  <option>The Lakes</option>
+                  <option>Emirates Hills</option>
+                  <option>Dubai Creek Harbour</option>
+                  <option>Bluewaters Island</option>
+                  <option>City Walk</option>
+                  <option>Meydan</option>
+                  <option>Town Square</option>
+                  <option>Remraam</option>
+                  <option>Mudon</option>
+                  <option>Mira (Reem)</option>
+                  <option>Serena</option>
+                  <option>IMPZ / Dubai Production City</option>
+                  <option>International City</option>
+                  <option>Mirdif</option>
+                  <option>Deira</option>
+                </select>
+              </label>
               <div class="grid-2 cols">
               <label class="row">Bedrooms
                   <div class="stepper">
@@ -221,7 +399,11 @@
                 </label>
               </div>
               <label>Size (sqft)
-                <input type="range" id="size" min="300" max="5000" step="10" value="750" />
+                <div class="pair has-unit">
+                  <input type="range" id="size" min="300" max="5000" step="10" value="750" />
+                  <input type="number" id="sizeNum" min="300" max="5000" step="10" value="750" inputmode="numeric" />
+                  <span class="u">ft²</span>
+                </div>
                 <div class="hint"><span id="sizeVal">750 ft²</span></div>
               </label>
             </div>
@@ -238,7 +420,11 @@
                 <div class="hint" id="downApplyHint" style="display:none"></div>
               </label>
               <label>Loan Term (years)
-                <input type="range" id="loanTerm" min="5" max="30" step="1" value="25" />
+                <div class="pair has-unit">
+                  <input type="range" id="loanTerm" min="5" max="30" step="1" value="25" />
+                  <input type="number" id="loanTermNum" min="1" max="40" step="1" value="25" inputmode="numeric" />
+                  <span class="u">years</span>
+                </div>
                 <div class="hint"><span id="loanTermVal">25 years</span></div>
               </label>
               <label>Interest Rate (%)
@@ -255,7 +441,11 @@
               </label>
               <label class="switch"><span>Include DLD Fee (4%)</span> <span class="info">i<span class="itip">DLD transfer fee (4%) is a one‑time government charge on purchase.</span></span><span class="sw"><input type="checkbox" id="dldFeeEnabled" checked /><i></i></span></label>
               <label>Agent Fee (%) <span class="info">i<span class="itip">One‑time broker commission paid at purchase (typically ~2%).</span></span>
-                <input type="range" id="agentFee" min="0" max="5" step="0.5" value="2" />
+                <div class="pair has-unit">
+                  <input type="range" id="agentFee" min="0" max="5" step="0.5" value="2" />
+                  <input type="number" id="agentFeeNum" min="0" max="100" step="0.1" value="2" inputmode="decimal" />
+                  <span class="u">%</span>
+                </div>
                 <div class="hint"><span id="agentFeeVal">2%</span></div>
               </label>
               <label>Additional Costs (AED) <span class="info">i<span class="itip">One‑time purchase costs in Dubai (excl. agent fee). Examples: mortgage processing/arrangement fee, valuation fee, trustee office/admin, developer NOC, conveyancing, utility connection/deposits (e.g., DEWA), POA or translations/attestations if needed.</span></span>
@@ -325,11 +515,19 @@
                 <div class="hint"><span id="managementFeeVal">8%</span></div>
               </label>
               <label>Annual Insurance (AED) <span class="info">i<span class="itip">Yearly building/contents/landlord insurance. Apartments often ~AED 500–2,000; villas higher depending on size and coverage.</span></span>
-                <input type="range" id="annualInsurance" min="0" max="5000" step="50" value="1500" />
+                <div class="pair has-unit">
+                  <input type="range" id="annualInsurance" min="0" max="5000" step="50" value="1500" />
+                  <input type="number" id="annualInsuranceNum" min="0" step="50" value="1500" inputmode="numeric" />
+                  <span class="u">AED</span>
+                </div>
                 <div class="hint"><span id="annualInsuranceVal">AED 1,500</span></div>
               </label>
               <label>Other Expenses (AED/year) <span class="info">i<span class="itip">Annual fixed costs not captured elsewhere. Examples: service/association charges, chiller subscription (if landlord‑paid), annual inspections, small admin/subscriptions. Enter as AED per year.</span></span>
-                <input type="range" id="otherExpenses" min="0" max="5000" step="50" value="200" />
+                <div class="pair has-unit">
+                  <input type="range" id="otherExpenses" min="0" max="5000" step="50" value="200" />
+                  <input type="number" id="otherExpensesNum" min="0" step="50" value="200" inputmode="numeric" />
+                  <span class="u">AED</span>
+                </div>
                 <div class="hint"><span id="otherExpensesVal">AED 200</span></div>
               </label>
               <div class="mini-summary">
@@ -383,6 +581,7 @@
               <div class="metric-value" id="icPrice">—</div>
             </div>
             <div class="details-list">
+              <div class="detail-row"><span class="detail-label">Address</span><span class="detail-value" id="icAddress">—</span></div>
               <div class="detail-row"><span class="detail-label">Type</span><span class="detail-value" id="icType">—</span></div>
               <div class="detail-row"><span class="detail-label">Beds</span><span class="detail-value" id="icBeds">—</span></div>
               <div class="detail-row"><span class="detail-label">Size</span><span class="detail-value" id="icSize">—</span></div>
@@ -453,8 +652,8 @@
               <svg class="ge-svg" width="220" height="220" viewBox="0 0 220 220" aria-hidden="true">
                 <defs>
                   <linearGradient id="geGradient" x1="0%" y1="0%" x2="100%" y2="0%">
-                    <stop offset="0%" stop-color="#10b981" />
-                    <stop offset="100%" stop-color="#059669" />
+                    <stop offset="0%" stop-color="#0b1e47" />
+                    <stop offset="100%" stop-color="#172554" />
                   </linearGradient>
                   <linearGradient id="geGradientWarn" x1="0%" y1="0%" x2="100%" y2="0%">
                     <stop offset="0%" stop-color="#f59e0b" />
@@ -480,6 +679,7 @@
               <span id="geBadgeText">Excellent Investment</span>
             </div>
             <h3 class="ge-headline" id="geHeadline">Deal outlook</h3>
+            <p class="ge-address" id="geAddress">—</p>
             <p class="ge-desc" id="geDesc">Run an analysis to see outlook and drivers.</p>
           </div>
         </details>
@@ -488,9 +688,72 @@
           <ul id="gcContrib" class="gcontrib micro" style="margin-top:8px"></ul>
         </details>
         <details class="gdetails" open>
+          <summary>Market position & risk</summary>
+          <div class="mbx-grid">
+            <!-- Market Position -->
+            <div class="mp-card">
+              <div class="mp-head">
+                <div>
+                  <div class="mp-title">Market Position</div>
+                  <div class="mp-sub" id="mpSub">—</div>
+                </div>
+                <span class="info">i<span class="itip" id="mpHeadTip">Market averages are indicative and updated periodically. Compare your price, rent, yield and price/sqft vs community averages.</span></span>
+              </div>
+              <div class="mp-body">
+                <div class="mp-row" id="mpPriceRow">
+                  <div class="mp-l">Price <span class="info">i<span class="itip">Lower vs market is better for purchase price.</span></span></div>
+                  <div class="mp-v">
+                    <div id="mpPrice">—</div>
+                    <div class="mp-cmp" id="mpPriceCmp">—</div>
+                  </div>
+                </div>
+                <div class="mp-row" id="mpRentRow">
+                  <div class="mp-l">Rent <span class="info">i<span class="itip">Higher rent vs market indicates stronger income.</span></span></div>
+                  <div class="mp-v">
+                    <div id="mpRent">—</div>
+                    <div class="mp-cmp" id="mpRentCmp">—</div>
+                  </div>
+                </div>
+                <div class="mp-row" id="mpYieldRow">
+                  <div class="mp-l">Net yield <span class="info">i<span class="itip">Net yield after vacancy & operating expenses.</span></span></div>
+                  <div class="mp-v">
+                    <div id="mpYield">—</div>
+                    <div class="mp-cmp" id="mpYieldCmp">—</div>
+                  </div>
+                </div>
+                <div class="mp-row" id="mpPpsfRow">
+                  <div class="mp-l">Price / sqft <span class="info">i<span class="itip">Lower price per sqft vs market is positive.</span></span></div>
+                  <div class="mp-v">
+                    <div id="mpPpsf">—</div>
+                    <div class="mp-cmp" id="mpPpsfCmp">—</div>
+                  </div>
+                </div>
+                <div class="mp-verdict">
+                  <div class="t" id="mpVerdictTitle">Verdict</div>
+                  <div class="x" id="mpVerdictText">—</div>
+                </div>
+              </div>
+            </div>
+            <!-- Risk Assessment -->
+            <div class="risk-card">
+              <div class="risk-head">
+                <div class="risk-title">Risk Assessment</div>
+                <div class="risk-badge low" id="riskBadge">LOW</div>
+              </div>
+              <div class="risk-body" id="riskBody">
+                <!-- risks will be injected -->
+              </div>
+            </div>
+          </div>
+        </details>
+        <details class="gdetails" open>
           <summary>Rent Optimization</summary>
           <div class="driver-action" id="rentActionHost"></div>
         </details>
+        <div class="center" style="padding:8px 0 12px; grid-column:1 / -1;">
+          <button class="btn" id="saveDealCta"><span id="saveCount">Saved (0/3)</span></button>
+          <a class="btn ghost" id="goCompareCta" href="compare.html" style="margin-left:8px">Go to comparison</a>
+        </div>
       </div>
 
     <!-- Segmented pill preview -->
@@ -529,9 +792,6 @@
     
 
     
-
-    
-
     <!-- Deal Comparison Section -->
     <details class="gdetails deal-comp" open>
       <summary>Deal comparison</summary>

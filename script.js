@@ -5,6 +5,70 @@ function formatPercent(v,d=1){return isFinite(v)? v.toFixed(d)+'%':'—'}
 function safeSetText(id, t){const el=$(id); if(el) el.textContent=t}
 function valNum(id){const el=$(id); const v=parseFloat(el && el.value); return isFinite(v)? v:0}
 
+// Reset all calculator fields to baseline defaults (Option A)
+function resetCalculatorToDefaults(){
+	// Lock analysis and clear grade placeholders
+	window._analysisLocked = true;
+	const geLetter=document.getElementById('geLetter'); const geScore=document.getElementById('geScore');
+	const geBadge=document.getElementById('geBadge'); const geDesc=document.getElementById('geDesc');
+	if(geLetter) geLetter.textContent='—';
+	if(geScore) geScore.textContent='—/100';
+	if(geBadge) geBadge.style.display='none';
+	if(geDesc) geDesc.textContent='Run an analysis to see outlook and drivers.';
+	// Helpers
+	const setPair=(baseId, value, unitUpdater)=>{
+		const r=$(baseId), n=$(baseId+'Num');
+		if(r){ r.value = String(value); r.dispatchEvent(new Event('input',{bubbles:true})); }
+		if(n){ n.value = String(value); n.dispatchEvent(new Event('input',{bubbles:true})); }
+		if(typeof unitUpdater==='function') unitUpdater(value);
+	};
+	const setRange=(id, value, hintId, fmt)=>{ const el=$(id); if(el){ el.value=String(value); el.dispatchEvent(new Event('input',{bubbles:true})); } if(hintId){ const h=$(hintId); if(h) h.textContent = fmt? fmt(value): value; } };
+	const setNum=(id, value)=>{ const el=$(id); if(el){ el.value=String(value); el.dispatchEvent(new Event('input',{bubbles:true})); } };
+	const fmtAED=(v)=>'AED '+Math.round(v).toLocaleString('en-US');
+	// Step 1: Property
+	const statusHidden=$('status');
+	if(statusHidden){ statusHidden.value='ready'; }
+	// Toggle UI buttons for status
+	const segBtns=document.querySelectorAll('#statusSeg .seg-btn');
+	segBtns.forEach(btn=>{ btn.classList.toggle('active', btn.dataset.status==='ready'); });
+	// Hide offplan fields
+	const offFields=$('offplanFields'); if(offFields) offFields.style.display='none';
+	setNum('projectName','');
+	setPair('propertyValue', 1200000, (v)=>{ const h=$('priceVal'); if(h) h.textContent = fmtAED(v); });
+	setRange('size', 750, 'sizeVal', (v)=> `${v} ft²`);
+	setNum('propertyType','apartment');
+	setNum('community','');
+	setNum('bedrooms', 1);
+	setNum('bathrooms', 1);
+	// Off-plan specific
+	setNum('handover','');
+	setRange('preHandoverPct', 50, 'preHandoverPctVal', (v)=> `${v}%`);
+	['chipPre','chipDown','chipLoan'].forEach(id=>{ const c=$(id); if(c) c.textContent = c.id==='chipWarn'?'Check totals':'—'; });
+	const chipWarn=$('chipWarn'); if(chipWarn){ chipWarn.style.display='none'; }
+	// Step 2: Financing
+	setPair('downPayment', 25, (v)=>{ const h=$('downPaymentVal'); if(h) h.textContent = `${v}%`; });
+	setRange('loanTerm', 25, 'loanTermVal', (v)=> `${v} years`);
+	setPair('interestRate', 4.5, (v)=>{ const h=$('interestRateVal'); if(h) h.textContent = `${parseFloat(v).toFixed(2)}%`; });
+	const dld=$('dldFeeEnabled'); if(dld){ dld.checked=true; dld.dispatchEvent(new Event('change',{bubbles:true})); }
+	setRange('agentFee', 2, 'agentFeeVal', (v)=> `${v}%`);
+	setNum('additionalCosts', 0); const acv=$('additionalCostsVal'); if(acv) acv.textContent = fmtAED(0);
+	// Step 3: Revenue
+	setPair('monthlyRent', 8500, (v)=>{ const h=$('monthlyRentVal'); if(h) h.textContent = fmtAED(v); });
+	setPair('additionalIncome', 0, (v)=>{ const h=$('additionalIncomeVal'); if(h) h.textContent = fmtAED(v); });
+	setPair('vacancyRate', 8, (v)=>{ const h=$('vacancyRateVal'); if(h) h.textContent = `${v}%`; });
+	// Step 4: Expenses
+	setPair('maintenanceRate', 2, (v)=>{ const h=$('maintenanceRateVal'); if(h) h.textContent = `${v}%`; });
+	setPair('managementFee', 8, (v)=>{ const h=$('managementFeeVal'); if(h) h.textContent = `${v}%`; });
+	setRange('annualInsurance', 1500, 'annualInsuranceVal', (v)=> fmtAED(v));
+	setRange('otherExpenses', 200, 'otherExpensesVal', (v)=> fmtAED(v));
+	// Clear Input Summary cards to '—'
+	['icPrice','icType','icBeds','icSize','icStatus','icTotalInitial','icDown','icLoan','icRate','icTerm','icRent','icAnnualRent','icVacancy','icExtra','icGross','icOpexMo','icOpexYr','icMgmt','icMaint','icIns'].forEach(id=>{ const el=$(id); if(el) el.textContent='—'; });
+	// Reset wizard to Step 1
+	if(typeof setStep==='function'){ setStep(1); }
+	// Recompute mini summaries for defaults (so totals reflect defaults, not zeros)
+	if(typeof calculate==='function'){ try{ calculate(); }catch(_){} }
+}
+
 function remainingBalance(principal, annualRatePct, years, monthsElapsed){
   const r=annualRatePct/100/12, n=years*12;
   if(!isFinite(principal)||!isFinite(r)||!isFinite(n)||n<=0) return 0;
@@ -123,6 +187,59 @@ function calculate(){
   if(window._analysisLocked){
     const l=document.getElementById('limitNote');
     if(l){ l.style.display='block'; l.textContent='Fill in the steps and press Analyze to run the full analysis.'; }
+    // Preview basic totals even when locked (so mini-summaries are not 0)
+    // Financing inputs
+    const pv = valNum('propertyValue');
+    const downPct = valNum('downPayment');
+    const agentFeePct = valNum('agentFee');
+    const years = valNum('loanTerm');
+    const ratePct = valNum('interestRate');
+    const dldFeeEnabled = (document.getElementById('dldFeeEnabled')||{}).checked;
+    const additionalCosts = valNum('additionalCosts');
+    const rent = valNum('monthlyRent');
+    const addInc = valNum('additionalIncome');
+    const vacancyRate = valNum('vacancyRate');
+    const maintRate = valNum('maintenanceRate');
+    const mgmtRate  = valNum('managementFee');
+    const baseFee   = valNum('baseFee');
+    const annualInsurance = valNum('annualInsurance');
+    const otherExpenses = valNum('otherExpenses');
+    const statusVal_calc = (document.getElementById('status')||{}).value || 'ready';
+    let downPayment = pv * (downPct/100);
+    const agentFee = pv * (agentFeePct/100);
+    const dldFee = dldFeeEnabled ? pv * 0.04 : 0;
+    let loanAmount = Math.max(0, pv - downPayment);
+    let totalInitial = downPayment + agentFee + dldFee + additionalCosts;
+    if(statusVal_calc==='offplan'){
+      const prePct = valNum('preHandoverPct');
+      const preCash = pv * (prePct/100);
+      const remain = Math.max(0, pv - preCash);
+      const downAtHandover = remain * (downPct/100);
+      loanAmount = Math.max(0, remain - downAtHandover);
+      downPayment = downAtHandover;
+      totalInitial = preCash + downAtHandover + agentFee + dldFee + additionalCosts;
+    }
+    safeSetText('summaryLoan', formatCurrencyAED(loanAmount));
+    safeSetText('summaryInitial', formatCurrencyAED(totalInitial));
+    safeSetText('sumLoanAmt', formatCurrencyAED(loanAmount));
+    safeSetText('sumTotalInitial', formatCurrencyAED(totalInitial));
+    const r = ratePct/100/12, n = years*12;
+    const monthlyPayment = (loanAmount>0 && n>0) ? (r===0 ? loanAmount/n : loanAmount * r / (1 - Math.pow(1+r, -n))) : 0;
+    const grossMonthlyIncome = rent + addInc;
+    const effectiveIncome = grossMonthlyIncome * (1 - vacancyRate/100);
+    const monthlyMaint = effectiveIncome * (maintRate/100);
+    const monthlyMgmt  = effectiveIncome * (mgmtRate/100);
+    const monthlyOpex  = monthlyMaint + monthlyMgmt + baseFee + (annualInsurance/12) + (otherExpenses/12);
+    const annualOpex = monthlyMaint*12 + monthlyMgmt*12 + baseFee*12 + annualInsurance + otherExpenses;
+    safeSetText('summaryGrossInc', formatCurrencyAED(grossMonthlyIncome));
+    safeSetText('summaryEffInc', formatCurrencyAED(effectiveIncome));
+    safeSetText('summaryOpex', formatCurrencyAED(monthlyOpex));
+    safeSetText('summaryOpexY', formatCurrencyAED(annualOpex));
+    safeSetText('sumGrossMo', formatCurrencyAED(grossMonthlyIncome));
+    safeSetText('sumGrossYr', formatCurrencyAED(grossMonthlyIncome*12));
+    safeSetText('sumOpexMo', formatCurrencyAED(monthlyOpex));
+    safeSetText('sumOpexYr', formatCurrencyAED(annualOpex));
+    // Keep grade/results locked
     return;
   }
   // Financing inputs
@@ -525,6 +642,7 @@ function calculate(){
     const wrap=document.getElementById('gradeEnhanced');
     const headline=document.getElementById('geHeadline');
     const desc=document.getElementById('geDesc');
+    const addrEl=document.getElementById('geAddress');
     const pct=Math.max(0, Math.min(100, Math.round(g.score||0)));
     if(letterEl){ letterEl.textContent = (g.grade||'—')[0]||'—'; }
     if(scoreEl){ scoreEl.textContent = `${pct}/100`; }
@@ -537,6 +655,20 @@ function calculate(){
       if(badgeText) badgeText.textContent = txt;
       badgeWrap.style.display = '';
     }
+    // Theme background by grade letter (A blue, B green, C yellow, D orange, E/F red)
+    (function(){
+      if(!wrap) return;
+      const themes=['theme-A','theme-B','theme-C','theme-D','theme-E','theme-F'];
+      themes.forEach(c=> wrap.classList.remove(c));
+      const ch=(g.grade||'')[0]||'';
+      let t='theme-A';
+      if(ch==='A') t='theme-A';
+      else if(ch==='B') t='theme-B';
+      else if(ch==='C') t='theme-C';
+      else if(ch==='D') t='theme-D';
+      else if(ch==='E' || ch==='F') t='theme-F';
+      wrap.classList.add(t);
+    })();
     if(progEl){
       const C=565; // 2πr for r=90
       // reset to start then animate to target
@@ -547,6 +679,11 @@ function calculate(){
       const target = C * (1 - (pct/100));
       progEl.style.transition = 'stroke-dashoffset 2s ease-out';
       progEl.style.strokeDashoffset = String(target);
+    }
+    // Address under grade headline
+    if(addrEl){
+      const name=(document.getElementById('projectName')||{}).value || '';
+      addrEl.textContent = name ? name : '—';
     }
     // Color state + gradient by result
     (function(){
@@ -639,6 +776,7 @@ function calculate(){
     const set=(id,val)=>{ const el=byId(id); if(el){ el.textContent = (val===undefined||val===null||val==='')? '—' : String(val); } };
     // Property
     set('icPrice', shortMoney(pv));
+    set('icAddress', (document.getElementById('projectName')||{}).value || '—');
     set('icType', (document.getElementById('propertyType')||{}).value || '—');
     set('icBeds', ((document.getElementById('bedrooms')||{}).value? `${(document.getElementById('bedrooms')||{}).value}BR`:'—'));
     set('icSize', ((document.getElementById('size')||{}).value? `${(document.getElementById('size')||{}).value} sqft`:'—'));
@@ -661,6 +799,160 @@ function calculate(){
     set('icMgmt', isFinite(mgmtRate)? mgmtRate.toFixed(0)+'%':'—');
     set('icMaint', isFinite(maintRate)? maintRate.toFixed(0)+'%':'—');
     set('icIns', isFinite(annualInsurance)? Math.round(annualInsurance).toLocaleString('en-US')+'/y':'—');
+  })();
+  // Market Benchmark (simple, example/populated from inputs)
+  // Market Position & Risk (example data; lightweight)
+  (function marketPositionAndRisk(){
+    const mpSub=document.getElementById('mpSub');
+    const priceEl=document.getElementById('mpPrice'); const priceCmp=document.getElementById('mpPriceCmp'); const priceRow=document.getElementById('mpPriceRow');
+    const rentEl=document.getElementById('mpRent'); const rentCmp=document.getElementById('mpRentCmp'); const rentRow=document.getElementById('mpRentRow');
+    const yEl=document.getElementById('mpYield'); const yCmp=document.getElementById('mpYieldCmp'); const yRow=document.getElementById('mpYieldRow');
+    const ppsfEl=document.getElementById('mpPpsf'); const ppsfCmp=document.getElementById('mpPpsfCmp'); const ppsfRow=document.getElementById('mpPpsfRow');
+    const vTitle=document.getElementById('mpVerdictTitle'); const vText=document.getElementById('mpVerdictText'); const vSrc=document.getElementById('mpSource');
+    const riskBadge=document.getElementById('riskBadge'); const riskBody=document.getElementById('riskBody');
+    if(!mpSub || !priceEl || !riskBadge) return;
+    // Inputs
+    const communitySel=(document.getElementById('community')||{}).value||'Dubai';
+    const bedrooms=parseInt((document.getElementById('bedrooms')||{}).value||'2',10);
+    const sizeFt=parseFloat((document.getElementById('size')||{}).value||'850')||850;
+    const pv=parseFloat((document.getElementById('propertyValue')||{}).value||'1200000')||1200000;
+    const rent=parseFloat((document.getElementById('monthlyRent')||{}).value||'8500')||8500;
+    // Derived
+    const pricePerSqft = sizeFt>0? pv/sizeFt : NaN;
+    // Example benchmark dataset (expanded & type-specific; indicative only)
+    const benchMap={
+      'dubai marina':{name:'Dubai Marina', src:'Property Finder/Bayut Q4 2024 (indicative)',
+        studio:{avgPrice:900000,avgRent:5000,avgYield:6.7,avgPricePerSqft:2300},
+        '1br':{avgPrice:1700000,avgRent:7800,avgYield:5.5,avgPricePerSqft:2700},
+        '2br':{avgPrice:3200000,avgRent:14500,avgYield:5.2,avgPricePerSqft:3150},
+        '3br':{avgPrice:5200000,avgRent:20000,avgYield:4.6,avgPricePerSqft:3400}
+      },
+      'jbr':{name:'Jumeirah Beach Residence (JBR)', src:'Property Finder Q4 2024 (indicative)',
+        studio:{avgPrice:1200000,avgRent:6000,avgYield:6.0,avgPricePerSqft:2600},
+        '1br':{avgPrice:2200000,avgRent:9500,avgYield:5.2,avgPricePerSqft:3000},
+        '2br':{avgPrice:3400000,avgRent:12900,avgYield:5.5,avgPricePerSqft:3400},
+        '3br':{avgPrice:5600000,avgRent:19000,avgYield:4.1,avgPricePerSqft:3600}
+      },
+      'business bay':{name:'Business Bay', src:'Bayut Q4 2024 (indicative)',
+        studio:{avgPrice:800000,avgRent:4800,avgYield:7.2,avgPricePerSqft:2000},
+        '1br':{avgPrice:1500000,avgRent:7500,avgYield:6.0,avgPricePerSqft:2400},
+        '2br':{avgPrice:2800000,avgRent:11700,avgYield:6.2,avgPricePerSqft:2800},
+        '3br':{avgPrice:4200000,avgRent:16500,avgYield:5.1,avgPricePerSqft:3100}
+      },
+      'downtown dubai':{name:'Downtown Dubai', src:'Property Finder Q4 2024 (indicative)',
+        studio:{avgPrice:1400000,avgRent:6500,avgYield:5.6,avgPricePerSqft:3200},
+        '1br':{avgPrice:2600000,avgRent:11000,avgYield:5.1,avgPricePerSqft:3500},
+        '2br':{avgPrice:4500000,avgRent:15000,avgYield:4.8,avgPricePerSqft:3800},
+        '3br':{avgPrice:7000000,avgRent:23000,avgYield:4.0,avgPricePerSqft:4200}
+      },
+      'palm jumeirah':{name:'Palm Jumeirah', src:'Bayut Q4 2024 (indicative)',
+        studio:{avgPrice:1600000,avgRent:7000,avgYield:5.2,avgPricePerSqft:3600},
+        '1br':{avgPrice:2800000,avgRent:12000,avgYield:5.1,avgPricePerSqft:3900},
+        '2br':{avgPrice:5200000,avgRent:18500,avgYield:4.6,avgPricePerSqft:4200},
+        '3br':{avgPrice:8500000,avgRent:28000,avgYield:3.9,avgPricePerSqft:4700}
+      },
+      'jlt':{name:'Jumeirah Lakes Towers (JLT)', src:'Property Finder Q4 2024 (indicative)',
+        studio:{avgPrice:750000,avgRent:4200,avgYield:6.7,avgPricePerSqft:1800},
+        '1br':{avgPrice:1200000,avgRent:6500,avgYield:6.5,avgPricePerSqft:2100},
+        '2br':{avgPrice:2200000,avgRent:10500,avgYield:6.3,avgPricePerSqft:2400}
+      },
+      'jvc':{name:'Jumeirah Village Circle (JVC)', src:'Bayut Q4 2024 (indicative)',
+        studio:{avgPrice:500000,avgRent:3500,avgYield:8.4,avgPricePerSqft:1200},
+        '1br':{avgPrice:900000,avgRent:5200,avgYield:6.9,avgPricePerSqft:1500},
+        '2br':{avgPrice:1400000,avgRent:7500,avgYield:7.0,avgPricePerSqft:1800}
+      },
+      'dubai hills estate':{name:'Dubai Hills Estate', src:'Property Finder Q4 2024 (indicative)',
+        '1br':{avgPrice:2000000,avgRent:9000,avgYield:5.4,avgPricePerSqft:2900},
+        '2br':{avgPrice:3800000,avgRent:16000,avgYield:5.1,avgPricePerSqft:3300},
+        '3br':{avgPrice:6000000,avgRent:23000,avgYield:4.6,avgPricePerSqft:3600}
+      },
+      'dubai sports city':{name:'Dubai Sports City', src:'Bayut Q4 2024 (indicative)',
+        studio:{avgPrice:400000,avgRent:3000,avgYield:9.0,avgPricePerSqft:1000},
+        '1br':{avgPrice:750000,avgRent:4500,avgYield:7.2,avgPricePerSqft:1300},
+        '2br':{avgPrice:1600000,avgRent:8800,avgYield:7.5,avgPricePerSqft:1800}
+      },
+      'default':{name:'Dubai Average', src:'Dubai Land Department 2024 (indicative)',
+        studio:{avgPrice:800000,avgRent:4000,avgYield:6.0,avgPricePerSqft:1800},
+        '1br':{avgPrice:1500000,avgRent:7500,avgYield:6.0,avgPricePerSqft:2300},
+        '2br':{avgPrice:3000000,avgRent:12500,avgYield:6.0,avgPricePerSqft:2950},
+        '3br':{avgPrice:5000000,avgRent:20000,avgYield:5.5,avgPricePerSqft:3400}
+      }
+    };
+    const norm=(s)=> (s||'').toLowerCase().trim();
+    const alias={
+      'jumeirah beach residence (jbr)':'jbr','jbr':'jbr',
+      'jumeirah lakes towers (jlt)':'jlt','jlt':'jlt',
+      'jumeirah village circle (jvc)':'jvc','jvc':'jvc',
+      'jumeirah village triangle (jvt)':'jvt','jvt':'jvt',
+      'mohammed bin rashid city (mbr)':'mbr city','mbr':'mbr city','mbr city':'mbr city',
+      'dubai silicon oasis':'dso','dso':'dso',
+      'impz / dubai production city':'impz','impz':'impz'
+    };
+    const keyRaw=norm(communitySel);
+    const key = alias[keyRaw] || keyRaw;
+    const bComm=benchMap[key] || benchMap['default'];
+    const typeKey = (bedrooms===0)? 'studio' : (bedrooms===1? '1br' : (bedrooms>=3? '3br' : '2br'));
+    const bType = bComm[typeKey] || bComm['2br'] || bComm['1br'] || bComm['studio'];
+    const b={name:bComm.name, src:bComm.src, ...bType};
+    mpSub.textContent = `${bComm.name} • ${isFinite(bedrooms)? (bedrooms===0?'Studio':bedrooms+'BR'):'—'}`;
+    // helper compare
+    const cmp=(your, mkt, higherBetter)=>{
+      if(!isFinite(your)||!isFinite(mkt)||mkt<=0) return {text:'—', cls:'neutral'};
+      const pct=((your-mkt)/mkt)*100;
+      const cls = higherBetter ? (pct>=5?'good': pct<=-10?'bad':'neutral') : (pct<=-5?'good': pct>=10?'bad':'neutral');
+      const txt=`${Math.abs(pct).toFixed(0)}% ${pct>=0?'above':'below'} avg`;
+      return {text:txt, cls};
+    };
+    // Values
+    priceEl.textContent = 'AED '+Math.round(pv).toLocaleString('en-US');
+    rentEl.textContent = 'AED '+Math.round(rent).toLocaleString('en-US')+'/mo';
+    yEl.textContent = isFinite(netYield)? netYield.toFixed(1)+'%' : '—';
+    ppsfEl.textContent = isFinite(pricePerSqft)? ('AED '+Math.round(pricePerSqft).toLocaleString('en-US')):'—';
+    // Comparisons
+    const cPrice=cmp(pv,b.avgPrice,false); priceCmp.textContent=cPrice.text; priceRow.classList.remove('good','neutral','bad'); priceRow.classList.add(cPrice.cls); priceCmp.className='mp-cmp '+cPrice.cls;
+    const cRent=cmp(rent,b.avgRent,true); rentCmp.textContent=cRent.text; rentRow.classList.remove('good','neutral','bad'); rentRow.classList.add(cRent.cls); rentCmp.className='mp-cmp '+cRent.cls;
+    const cYield=cmp(netYield||NaN,b.avgYield,true); yCmp.textContent=cYield.text; yRow.classList.remove('good','neutral','bad'); yRow.classList.add(cYield.cls); yCmp.className='mp-cmp '+cYield.cls;
+    const cPpsf=cmp(pricePerSqft||NaN,b.avgPricePerSqft,false); ppsfCmp.textContent=cPpsf.text; ppsfRow.classList.remove('good','neutral','bad'); ppsfRow.classList.add(cPpsf.cls); ppsfCmp.className='mp-cmp '+cPpsf.cls;
+    // Verdict
+    const badCount=[cPrice,cRent,cYield,cPpsf].filter(x=>x.cls==='bad').length;
+    let vt='Market Performer', vx='This property performs at or above market averages.';
+    if(badCount>=3){ vt='Underperforming'; vx='Significant underperformance vs community averages. Consider price/rent optimization.'; }
+    else if(badCount>=1){ vt='Mixed Performance'; vx='Some metrics trail market; focus on rent/yield improvements.'; }
+    if(vTitle) vTitle.textContent = 'Verdict: '+vt;
+    if(vText) vText.textContent = vx;
+    const headTip=document.getElementById('mpHeadTip');
+    if(headTip){
+      headTip.textContent = `Market averages are indicative and updated periodically. Compare your price, rent, yield and price/sqft vs community averages.\nData: ${b.src} • ${bComm.name} ${isFinite(bedrooms)? (bedrooms===0?'Studio':bedrooms+'BR'):'—'}`;
+    }
+    // Risks
+    const risks=[];
+    if(isFinite(monthlyCashFlow) && monthlyCashFlow<0){
+      risks.push({sev:'critical', title:'Negative Cash Flow', text:`${Math.round(monthlyCashFlow).toLocaleString('en-US')}/mo requires reserves`, tip:'Monthly shortfall implies reserves to cover; plan 6–12 months buffer.'});
+    }
+    const rentGapPct = ((rent - b.avgRent)/b.avgRent)*100;
+    if(isFinite(rentGapPct) && rentGapPct<-20){
+      risks.push({sev:'critical', title:'Below Market Rent', text:`${Math.abs(rentGapPct).toFixed(0)}% below ${b.name} avg`, tip:'Consider renegotiation at renewal to approach market.'});
+    }
+    if(isFinite(dscr) && dscr<1.0){
+      risks.push({sev:'warning', title:'DSCR below 1.0x', text:`${dscr.toFixed(2)}x limits refinancing`, tip:'Target ≥1.2x to improve bankability.'});
+    }
+    const priceGapPct = ((pv - b.avgPrice)/b.avgPrice)*100;
+    if(isFinite(priceGapPct) && priceGapPct<0){
+      risks.push({sev:'good', title:'Good Purchase Price', text:`${Math.abs(priceGapPct).toFixed(0)}% below market`, tip:'Built‑in equity provides buffer and upside.'});
+    }
+    // Risk badge
+    let level='low';
+    const crit=risks.filter(r=>r.sev==='critical').length; const warn=risks.filter(r=>r.sev==='warning').length;
+    if(crit>=2) level='high'; else if(crit===1 || warn>=2) level='medium-high'; else if(crit===0 && warn>=1) level='medium';
+    riskBadge.textContent = (level==='medium-high'?'MEDIUM-HIGH':level.toUpperCase());
+    riskBadge.className = 'risk-badge '+level;
+    // Render items
+    riskBody.innerHTML='';
+    risks.forEach(r=>{
+      const div=document.createElement('div'); div.className='risk-item '+(r.sev==='critical'?'critical': r.sev==='warning'?'warning':'good');
+      div.innerHTML = `<div class="h">${r.title} <span class="info">i<span class="itip">${r.tip}</span></span></div><div class="d">${r.text}</div>`;
+      riskBody.appendChild(div);
+    });
   })();
   // Update Down label depending on status
   (function(){
@@ -754,7 +1046,17 @@ function calculate(){
         else if(key==='grossYield'){ actual=isFinite(grossYield)? grossYield:0; target=8; unit='%'; }
         else if(key==='cashFlow'){ actual=isFinite(monthlyCashFlow)? monthlyCashFlow:0; target=2000; unit=''; }
         const pct = Math.max(0, Math.min(100, (target>0? (actual/target*100):0)));
-        const status = pct>=100? 'excellent' : pct>=80? 'good' : 'warning';
+        // Per-metric thresholds → status
+        const getStatusFor = (k, v)=>{
+          if(k==='roi'){ if(v>=80) return 'excellent'; if(v>=60) return 'good'; if(v>=40) return 'warning'; return 'bad'; }
+          if(k==='netYield'){ if(v>=6.5) return 'excellent'; if(v>=6.0) return 'good'; if(v>=4.0) return 'warning'; return 'bad'; }
+          if(k==='dscr'){ if(v>=1.30) return 'excellent'; if(v>=1.20) return 'good'; if(v>=1.00) return 'warning'; return 'bad'; }
+          if(k==='irr'){ if(v>=15) return 'excellent'; if(v>=12) return 'good'; if(v>=8) return 'warning'; return 'bad'; }
+          if(k==='grossYield'){ if(v>=9) return 'excellent'; if(v>=8) return 'good'; if(v>=6) return 'warning'; return 'bad'; }
+          if(k==='cashFlow'){ if(v>=2000) return 'excellent'; if(v>=0) return 'good'; if(v>=-200) return 'warning'; return 'bad'; }
+          return 'warning';
+        };
+        const status = getStatusFor(key, actual);
         const delta = actual - target;
         const positive = delta>=0;
         // formatting
@@ -773,11 +1075,24 @@ function calculate(){
           if(unit==='x') return (positive?'+':'')+ (delta).toFixed(2)+'x';
           return (positive?'+':'')+ Math.round(delta).toLocaleString('en-US');
         };
+        // Tooltip content per metric
+        const tipText = (()=>{
+          if(key==='roi') return 'ROI (5y): total return over 5 years (cash flow + principal + appreciation). Thresholds: Excellent ≥ 80%, Good 60–79%, Warning 40–59%, Bad < 40%.';
+          if(key==='netYield') return 'Net Yield: NOI ÷ price after vacancy & opex. Thresholds: Excellent ≥ 6.5%, Good 6.0–6.49%, Warning 4.0–5.99%, Bad < 4.0%.';
+          if(key==='dscr') return 'DSCR: NOI ÷ monthly P&I. Thresholds: Excellent ≥ 1.30×, Good 1.20–1.29×, Warning 1.00–1.19×, Bad < 1.00×.';
+          if(key==='irr') return 'IRR (5y): annualized return including timing of cash flows. Thresholds: Excellent ≥ 15%, Good 12–14.9%, Warning 8–11.9%, Bad < 8%.';
+          if(key==='grossYield') return 'Gross Yield: (Rent + extra) ÷ price before opex. Thresholds: Excellent ≥ 9%, Good 8–8.9%, Warning 6–7.9%, Bad < 6%.';
+          return 'Cash Flow (mo): NOI − P&I per month. Thresholds: Excellent ≥ AED 2,000, Good AED 0–1,999, Warning AED −200–−1, Bad < AED −200.';
+        })();
         const li=document.createElement('li');
         li.innerHTML = `
           <div class="driver-card ${status}" data-metric="${key}">
-            <span class="status-badge">${status==='excellent'?'Excellent': status==='good'?'Good':'Below Target'}</span>
-            <div class="card-title">${it.name}</div>
+            <span class="status-badge">${
+              status==='excellent' ? 'Excellent' :
+              status==='good' ? 'Good' :
+              status==='warning' ? 'Warning' : 'Poor'
+            }</span>
+            <div class="card-title">${it.name} <span class="info">i<span class="itip">${tipText}</span></span></div>
             <div class="card-value">${fmtVal()}</div>
             <div class="progress-bar">
               <div class="progress-fill" style="width:${Math.round(pct)}%"></div>
@@ -901,28 +1216,32 @@ function calculate(){
     const targetPct = (typeof window._recTargetPct==='number')? window._recTargetPct : 6;
     const targetRent = (typeof window._recSuggestRent==='number')? Math.round(window._recSuggestRent) : NaN;
     const shouldShow = isFinite(netYield) && isFinite(targetPct) && netYield < targetPct && isFinite(targetRent) && targetRent>0;
-    if(!shouldShow){ host.style.display='none'; host.innerHTML=''; return; }
+    const effectiveTargetRent = (isFinite(targetRent) && targetRent>0) ? targetRent : rent;
     host.style.display='block';
     host.innerHTML = `
       <div class="driver-card-action">
-        <span class="action-badge">ACTION</span>
+        <span class="action-badge" id="actionBadge">ACTION</span>
         <div class="action-header">
           <div class="action-title-group">
             <h4>Rent Optimization</h4>
             <p>Achieve target net yield</p>
+          </div>
+          <div class="action-help">
+            <span class="info">i<span class="itip">This card compares your current rent to the rent needed to meet your target net yield. Use “Recalculate” to apply the target rent and update your analysis.</span></span>
           </div>
         </div>
         <div class="action-comparison">
           <div class="action-metric">
             <span class="metric-label">Current Rent</span>
             <span class="metric-value" id="currentRentAction">AED —</span>
-            <span class="metric-sub" id="currentYieldAction">— yield</span>
+            <span class="metric-sub" id="currentYieldAction">— net yield</span>
+            <span class="metric-delta" id="currentYieldDelta"></span>
           </div>
           <div class="action-arrow">→</div>
           <div class="action-metric">
             <span class="metric-label">Target Rent</span>
             <span class="metric-value" id="targetRentAction">AED —</span>
-            <span class="metric-sub" id="targetYieldAction">— yield</span>
+            <span class="metric-sub" id="targetYieldAction">— net yield</span>
           </div>
         </div>
         <div class="action-grade">
@@ -949,8 +1268,8 @@ function calculate(){
       </div>`;
     // Populate values
     const curTxt = formatCurrencyAED(rent);
-    const tgtTxt = formatCurrencyAED(targetRent);
-    const inc = Math.max(0, targetRent - rent);
+    const tgtTxt = formatCurrencyAED(effectiveTargetRent);
+    const inc = Math.max(0, effectiveTargetRent - rent);
     const incTxt = 'AED '+Math.round(inc).toLocaleString('en-US');
     const cy=document.getElementById('currentYieldAction');
     const ty=document.getElementById('targetYieldAction');
@@ -959,14 +1278,32 @@ function calculate(){
     const ct=document.getElementById('actionCtaText');
     if(cr) cr.textContent = curTxt;
     if(tr) tr.textContent = tgtTxt;
-    if(cy) cy.textContent = (isFinite(netYield)? netYield.toFixed(1):'—') + '% yield';
-    if(ty) ty.textContent = (isFinite(targetPct)? targetPct.toFixed(1):'—') + '% yield';
-    if(ct) ct.textContent = `Increase rent by ${incTxt} to improve grade`;
+    if(cy) cy.textContent = (isFinite(netYield)? netYield.toFixed(1):'—') + '% net yield';
+    if(ty) ty.textContent = (isFinite(targetPct)? targetPct.toFixed(1):'—') + '% net yield';
+    // Yield deltas vs target
+    const curDeltaEl=document.getElementById('currentYieldDelta');
+    const curDelta = (isFinite(netYield)&&isFinite(targetPct))? (netYield - targetPct) : NaN;
+    if(curDeltaEl){
+      if(isFinite(curDelta)){
+        const sign = curDelta>=0? '+' : '';
+        curDeltaEl.textContent = `${sign}${curDelta.toFixed(1)}% vs target`;
+        curDeltaEl.classList.toggle('delta-pos', curDelta>=0);
+        curDeltaEl.classList.toggle('delta-neg', curDelta<0);
+      }else{
+        curDeltaEl.textContent='—';
+        curDeltaEl.classList.remove('delta-pos','delta-neg');
+      }
+    }
+    // No target delta shown (would always be 0%)
+    if(ct){
+      if(shouldShow) ct.textContent = `Increase rent by ${incTxt} to improve grade`;
+      else ct.textContent = 'At or above target net yield. No action needed.';
+    }
     const btn=document.getElementById('applyRentBtn');
     if(btn && !btn._bound){
       btn._bound=true;
       btn.addEventListener('click', ()=>{
-        const v = Math.max(0, targetRent);
+        const v = Math.max(0, effectiveTargetRent);
         const s=document.getElementById('monthlyRent'), n=document.getElementById('monthlyRentNum');
         if(s){ s.value=String(v); }
         if(n){ n.value=String(v); }
@@ -976,11 +1313,28 @@ function calculate(){
         const calc=document.getElementById('calcStart'); if(calc){ calc.scrollIntoView({behavior:'smooth', block:'start'}); }
       });
     }
+    // Button always usable
+    if(btn){
+      btn.disabled = false;
+      btn.style.opacity = '';
+      btn.style.cursor = '';
+    }
+    // Badge color/text by state
+    const actionBadge=document.getElementById('actionBadge');
+    if(actionBadge){
+      if(shouldShow){
+        actionBadge.textContent='ACTION';
+        actionBadge.classList.remove('ok');
+      }else{
+        actionBadge.textContent='No action needed';
+        actionBadge.classList.add('ok');
+      }
+    }
     // Grade change preview with projected values at target rent
     (function(){
       try{
         const C = (v)=> Math.max(0, v||0);
-        const tr = targetRent;
+        const tr = effectiveTargetRent;
         // incomes at target
         const eff2 = (tr + addInc) * (1 - vacancyRate/100);
         const mMaint2 = eff2 * (maintRate/100);
@@ -1013,13 +1367,21 @@ function calculate(){
         const gProj = computeGrade(mCF2, nYield2, gYield2, roi5p2, dscr2, irrP2);
         const fromEl=document.getElementById('gradeFrom');
         const toEl=document.getElementById('gradeTo');
-        if(fromEl) fromEl.textContent = (g.grade||'—')[0]||'—';
+        if(fromEl){
+          const cur = (g.grade||'—')[0]||'—';
+          fromEl.textContent = cur;
+          ['gp-A','gp-B','gp-C','gp-D','gp-E','gp-F','gp-good','gp-warn','gp-bad'].forEach(c=> fromEl.classList.remove(c));
+          if(/[A-F]/.test(cur)) fromEl.classList.add('gp-'+cur);
+        }
         if(toEl){
           const tgt = (gProj.grade||'—')[0]||'—';
           toEl.textContent = tgt;
-          toEl.classList.remove('gp-good','gp-warn','gp-bad');
-          const cls = (tgt<'C')? 'gp-good' : (tgt==='C')? 'gp-warn' : 'gp-bad';
-          toEl.classList.add(cls);
+          ['gp-A','gp-B','gp-C','gp-D','gp-E','gp-F','gp-good','gp-warn','gp-bad'].forEach(c=> toEl.classList.remove(c));
+          if(/[A-F]/.test(tgt)) toEl.classList.add('gp-'+tgt);
+          else{
+            const cls = (tgt<'C')? 'gp-good' : (tgt==='C')? 'gp-warn' : 'gp-bad';
+            toEl.classList.add(cls);
+          }
         }
       }catch(_){}
     })();
@@ -1797,7 +2159,7 @@ window.addEventListener('DOMContentLoaded', ()=>{
         if(!btn._bound){
           btn._bound=true;
           btn.addEventListener('click', ()=>{
-            // If a current analysis exists, save it immediately
+            // If a current analysis exists, save it immediately to the comparison
             const cur = window._currentDealComparison;
             if(cur && typeof window._cmpGetList==='function' && typeof window._cmpSetList==='function'){
               const list = window._cmpGetList();
@@ -1808,7 +2170,7 @@ window.addEventListener('DOMContentLoaded', ()=>{
               if(typeof showNotification==='function') showNotification('Current analysis added to comparison');
               return;
             }
-            // Otherwise guide the user to run the analysis first
+            // Otherwise guide the user to run an analysis first
             const calc=document.getElementById('calcStart');
             if(typeof setStep==='function'){ setStep(1); }
             if(calc){ calc.scrollIntoView({behavior:'smooth', block:'start'}); }
@@ -1966,14 +2328,20 @@ window.addEventListener('DOMContentLoaded', ()=>{
   bindVal('bedrooms','bedroomsVal');
   bindVal('bathrooms','bathroomsVal');
   bindVal('size','sizeVal',(v)=>v+' ft²');
+  // size slider <-> number
+  syncPair('size','sizeNum', (v)=>{ const out=$('sizeVal'); if(out) out.textContent = `${parseInt(v||0)} ft²`; });
   bindVal('preHandoverPct','preHandoverPctVal',(v)=>v+'%');
   bindVal('agentFee','agentFeeVal',(v)=>v+'%');
   bindVal('loanTerm','loanTermVal',(v)=>v+' years');
+  // loan term slider <-> number
+  syncPair('loanTerm','loanTermNum', (v)=>{ const out=$('loanTermVal'); if(out) out.textContent = `${parseInt(v||0)} years`; });
   // sync interest rate slider <-> number and value hint
   syncPair('interestRate','interestRateNum', (v)=>{ const out=$('interestRateVal'); if(out) out.textContent=parseFloat(v).toFixed(2)+'%'; });
   // sync down payment slider <-> number and update hint
   syncPair('downPayment','downPaymentNum', (v)=>{ const out=$('downPaymentVal'); if(out) out.textContent = parseFloat(v).toFixed(0)+'%'; });
   bindVal('downPayment','downPaymentVal',(v)=>parseFloat(v).toFixed(0)+'%');
+  // agent fee slider <-> number
+  syncPair('agentFee','agentFeeNum', (v)=>{ const out=$('agentFeeVal'); if(out) out.textContent = `${parseFloat(v||0).toFixed(1)}%`; });
   document.querySelectorAll('.step-btn').forEach(btn=>{
     btn.addEventListener('click', ()=>{
       const targetId=btn.getAttribute('data-target'); const delta=parseFloat(btn.getAttribute('data-delta')||'0');
@@ -2010,6 +2378,10 @@ window.addEventListener('DOMContentLoaded', ()=>{
   bindVal('baseFee','baseFeeVal',(v)=>'AED '+parseInt(v).toLocaleString('en-US'));
   bindVal('annualInsurance','annualInsuranceVal',(v)=>'AED '+parseInt(v).toLocaleString('en-US'));
   bindVal('otherExpenses','otherExpensesVal',(v)=>'AED '+parseInt(v).toLocaleString('en-US'));
+  // annual insurance slider <-> number
+  syncPair('annualInsurance','annualInsuranceNum', (v)=>{ const out=$('annualInsuranceVal'); if(out) out.textContent='AED '+parseInt(v||0).toLocaleString('en-US'); });
+  // other expenses slider <-> number
+  syncPair('otherExpenses','otherExpensesNum', (v)=>{ const out=$('otherExpensesVal'); if(out) out.textContent='AED '+parseInt(v||0).toLocaleString('en-US'); });
   // Growth bindings removed in Basic; fixed defaults are applied in calculations
 
   // segmented toggle behavior
@@ -2031,6 +2403,42 @@ window.addEventListener('DOMContentLoaded', ()=>{
 });
 
 // Beta access gate removed
+
+// --- Compare helpers (save count + CTA wiring) ---
+(function(){
+  function getList(){
+    if(typeof window._cmpGetList==='function') return window._cmpGetList();
+    try{
+      const raw=localStorage.getItem('comparisonDeals'); return raw? JSON.parse(raw):[];
+    }catch(_){ return []; }
+  }
+  function setList(list){
+    if(typeof window._cmpSetList==='function'){ window._cmpSetList(list); return; }
+    try{ localStorage.setItem('comparisonDeals', JSON.stringify(list)); }catch(_){}
+  }
+  function updateSaveCount(){
+    const el=document.getElementById('saveCount'); if(!el) return;
+    const n=(getList()||[]).length; el.textContent=`Saved (${n}/3)`;
+  }
+  function wireCtas(){
+    const save=document.getElementById('saveDealCta');
+    if(save && !save._bound){
+      save._bound=true;
+      save.addEventListener('click', ()=>{
+        const cur=window._currentDealComparison; if(!cur) return;
+        const list=getList();
+        if(list.length>=3){ if(typeof showNotification==='function') showNotification('Limit reached (3 deals).'); return; }
+        const next=[...list, cur].slice(-3); setList(next);
+        updateSaveCount();
+        if(typeof showNotification==='function') showNotification('Deal saved for comparison.');
+      });
+    }
+    updateSaveCount();
+  }
+  document.addEventListener('DOMContentLoaded', wireCtas);
+  // Also update after analyze completes by listening to a simple tick
+  setTimeout(updateSaveCount, 1000);
+})();
 
 // --- Analytics helpers and events (Plausible) ---
 window._track=function(name, props){ try{ if(window.plausible){ window.plausible(name, props? {props}: undefined); } }catch(_){} };
